@@ -7,7 +7,7 @@ A Counter-Strike 2 dedicated server for practice, ready to run 5v5 pug matches w
 On a VPS with Docker:
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/timche/cs2-servers/main/matchzy/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/timche/cs2-server/main/matchzy/install.sh | bash
 ```
 
 It asks for a server name, a server password, an RCON password, a [game server login token](https://steamcommunity.com/dev/managegameservers) (app ID 730), a game port and a player limit, writes `cs2-matchzy/.env` and starts the server. Set `DIR` to install somewhere else.
@@ -56,7 +56,7 @@ docker compose cp cs2:/home/steam/cs2-dedicated/game/csgo/MatchZy ./demos
 
 ## How the plugins get installed
 
-`pre.sh` is mounted into the container and run by the image on every start, after SteamCMD has updated the game and before the server launches. It installs the latest Metamod:Source, CounterStrikeSharp, MatchZy and ChatControl, skipping anything already at that version, then adds Metamod to the search paths in `gameinfo.gi` and writes `cfg/cs2-servers.cfg` with the two admin convars.
+`pre.sh` is mounted into the container and run by the image on every start, after SteamCMD has updated the game and before the server launches. It installs the latest Metamod:Source, CounterStrikeSharp, MatchZy and ChatControl, skipping anything already at that version, then adds Metamod to the search paths in `gameinfo.gi` and writes `cfg/cs2-server.cfg` with the two admin convars.
 
 Running after SteamCMD is what makes this work: CS2 updates replace `gameinfo.gi`, so Metamod has to be registered again on every boot. If a download fails, the server starts with the plugins it already has.
 

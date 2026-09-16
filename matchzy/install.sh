@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 # Sets up a MatchZy CS2 server on this machine. Run it straight from the repo:
-#   curl -fsSL https://raw.githubusercontent.com/timche/cs2-servers/main/matchzy/install.sh | bash
+#   curl -fsSL https://raw.githubusercontent.com/timche/cs2-server/main/matchzy/install.sh | bash
 set -euo pipefail
 
-REPO="${REPO:-timche/cs2-servers}"
+REPO="${REPO:-timche/cs2-server}"
 REF="${REF:-main}"
 DIR="${DIR:-cs2-matchzy}"
 BASE_URL="${BASE_URL:-https://raw.githubusercontent.com/${REPO}/${REF}/matchzy}"

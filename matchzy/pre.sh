@@ -14,7 +14,7 @@ set -euo pipefail
 CSGO="${STEAMAPPDIR}/game/csgo"
 STATE="${STEAMAPPDIR}/.matchzy"
 MMS_DROP="https://mms.alliedmods.net/mmsdrop/2.0"
-CONVAR_CFG="cs2-servers.cfg"
+CONVAR_CFG="cs2-server.cfg"
 
 log() { echo "[matchzy] $*"; }
 

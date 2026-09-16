@@ -1,4 +1,4 @@
-# cs2-servers
+# cs2-server
 
 Docker Compose stacks for Counter-Strike 2 dedicated servers, each one a folder you can deploy to a VPS with a single command.
 

@@ -70,16 +70,16 @@ The retakes plugins ask CounterStrikeSharp instead, which knows only the Steam64
 
 ChatControl is always there: `.map de_dust2` changes map, `.rcon <command>` runs a server command, and `.aim` and `.aimpistol` load the aim presets.
 
-In matchzy mode the server starts in normal competitive play. `.prac` opens practice mode, with grenade spawns, bot placement and noclip; `.exit` leaves it again. For a match, everyone types `.ready` and MatchZy runs the knife round and the map itself.
+In matchzy mode the server starts in normal competitive play. `.prac` opens practice mode, with grenade spawns, bot placement and noclip; `.exitprac` leaves it again. For a match, everyone types `.ready` and MatchZy runs the knife round and the map itself.
 
 | Command | What it does |
 | --- | --- |
 | `.ready` / `.unready` | Ready up for a match |
-| `.start` | Start a match once both teams are ready |
+| `.start` | Force the match to start |
 | `.stop` | Restore the current round |
 | `.pause` / `.unpause` | Pause and resume |
 | `.prac` | Practice mode |
-| `.exit` | Leave practice or match mode |
+| `.exitprac` | Leave practice mode |
 
 The [MatchZy docs](https://shobhit-pathak.github.io/MatchZy/) cover match configs, knife rounds and demo uploads.
 

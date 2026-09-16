@@ -1,8 +1,9 @@
 name: panel
 
-# The ghcr.io package is private until someone flips it to public once, by hand,
-# under Packages -> cs2-server/panel -> Package settings. Until they do,
-# `docker compose pull` on a fresh server fails to find the image.
+# The ghcr.io package came out public, following this repository. A fork of it
+# that is private has to be flipped by hand under Packages -> cs2-server/panel
+# -> Package settings, or `docker compose pull` on a fresh server cannot find
+# the image.
 
 on:
   push:

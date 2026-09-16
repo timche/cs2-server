@@ -60,7 +60,7 @@ Versions are resolved at boot from GitHub `releases/latest` and the AlliedModder
 
 `cloudflared` runs under a compose profile, started by `COMPOSE_PROFILES=tunnel`, with a dashboard-issued `TUNNEL_TOKEN`; the public hostname is routed to `http://panel:8080` in Cloudflare Zero Trust, not in this repo. **`TUNNEL_TOKEN` is the one exception to the no-slash rule** below — Cloudflare's tokens are base64 — which is safe because the image's `sed` templating only touches the `CS2_*` and `TV_*` values, and why `install.sh` must not put that prompt through `ask_without_slash`.
 
-The GHCR package is private until someone flips it to public once by hand, or `docker compose pull` on a fresh server cannot find the image.
+The GHCR package followed this repository and came out public, so an unauthenticated `docker compose pull` finds it. In a private fork it has to be flipped by hand under Packages → Package settings.
 
 ### retakes mode only
 

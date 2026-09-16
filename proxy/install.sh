@@ -13,6 +13,9 @@ fail() { printf '\n%s\n' "$*" >&2; exit 1; }
 [[ -r /dev/tty ]] || fail "No terminal available for the setup questions. Download the script and run it instead:
   curl -fsSL ${BASE_URL}/install.sh -o install.sh && bash install.sh"
 
+# Debian keeps nft in /usr/sbin, which an unprivileged login shell does not have on PATH.
+PATH="${PATH}:/usr/local/sbin:/usr/sbin:/sbin"
+
 command -v systemctl >/dev/null || fail "systemd is required; this machine does not have it."
 command -v nft >/dev/null || fail "nft is not installed. On Debian or Ubuntu:
   sudo apt-get install -y nftables"

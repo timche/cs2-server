@@ -108,15 +108,17 @@ sync() {
 	printf '%s\n' "$version" >"$stamp"
 }
 
-# Metamod raised its SourceHook interface to 18, and CounterStrikeSharp 1.0.374 is
-# built against 17, so Metamod refuses to load it -- "Plugin uses old SourceHook
-# Metamod build, probably 1.12.x or an early 2.0 version (17 < 18)" -- and the
-# server comes up with no plugins at all, which looks like the plugins failing
-# rather than Metamod turning them away. The drop directory offers no stable
-# pointer, only mmsource-latest-linux, so the last build CounterStrikeSharp can
-# load has to be named. METAMOD_BUILD=latest follows the pointer again, which is
-# what to do once CounterStrikeSharp ships against 18 -- and going further back is
-# no answer either, since builds below 1411 segfault on current CS2. See
+# Build 1459 replaced SourceHook with KHook and 1461 bumped the plugin API version
+# to 18 to gate out everything built against the old one. CounterStrikeSharp
+# 1.0.374 is one of those, so a current Metamod refuses it -- "Plugin uses old
+# SourceHook Metamod build, probably 1.12.x or an early 2.0 version (17 < 18)" --
+# and the server comes up with no plugins at all, which reads as the plugins
+# failing rather than Metamod turning CounterStrikeSharp away. 1411 is the last
+# build before that rewrite and the one people report working; 1460 is API 17 but
+# segfaults on current CS2, so the newest working build is not simply 1460. The
+# drop directory has no stable pointer, only mmsource-latest-linux, so the build
+# has to be named. METAMOD_BUILD=latest goes back to the pointer, which is what to
+# do once CounterStrikeSharp ships against 18. See
 # https://github.com/roflmuffin/CounterStrikeSharp/issues/1415
 sync_metamod() {
 	local build="${METAMOD_BUILD:-1411}" file

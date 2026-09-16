@@ -156,7 +156,7 @@ Running after SteamCMD is what makes this work: CS2 updates replace `gameinfo.gi
 
 CounterStrikeSharp is installed separately and at latest, rather than taking MatchZy's `-with-cssharp` bundle, because that bundle pins an older version than ChatControl and cs2-retakes need.
 
-Metamod is the one component not taken at latest. Build 1461 raised an interface version that CounterStrikeSharp 1.0.374 is not built against, so a current Metamod refuses to load it and the server starts with no plugins at all — `[META] Loaded 0 plugins` in the log, and no `addons/counterstrikesharp/logs/` directory. Builds older than 1411 crash on current CS2, so `pre.sh` pins 1411, which is the build that works. Set `METAMOD_BUILD` in `.env` to another build number, or to `latest`, once [CounterStrikeSharp ships a version against the new interface](https://github.com/roflmuffin/CounterStrikeSharp/issues/1415).
+Metamod is the one component not taken at latest. Build 1461 raised an interface version that CounterStrikeSharp 1.0.374 is not built against, so a current Metamod refuses to load it and the server starts with no plugins at all — `[META] Loaded 0 plugins` in the log, and no `addons/counterstrikesharp/logs/` directory. The builds just under that one are no escape either — 1460 crashes current CS2 — so `pre.sh` pins 1411, the last build before the change and the one people report working. Set `METAMOD_BUILD` in `.env` to another build number, or to `latest`, once [CounterStrikeSharp ships a version against the new interface](https://github.com/roflmuffin/CounterStrikeSharp/issues/1415).
 
 ## Configuration
 

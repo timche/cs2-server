@@ -68,6 +68,8 @@ The retakes plugins ask CounterStrikeSharp instead, which knows only the Steam64
 
 ## Using it
 
+The panel lists every command below for whichever mode is selected, so nobody has to come back here for them.
+
 ChatControl is always there: `.map de_dust2` changes map, `.rcon <command>` runs a server command, and `.aim` and `.aimpistol` load the aim presets. Every command answers `!` and `/` as well as `.`, and `/` keeps it out of everyone else's chat.
 
 MatchZy has a `map` and an `rcon` command of its own, and CounterStrikeSharp hands a shared command name to every plugin that registered it, so in matchzy mode `pre.sh` renames ChatControl's to `wmap` and switches its `rcon` off. `.map` and `.rcon` are MatchZy's there, `.wmap` is how you load a workshop map, and nothing runs twice. The other two modes keep ChatControl's names.

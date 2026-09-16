@@ -11,12 +11,32 @@ type mode struct {
 	Name  string
 	Label string
 	Desc  string
+	Help  []group
+	Docs  []link
 }
 
 var modes = []mode{
-	{"matchzy", "MatchZy", "MatchZy for practice and pugs, with ChatControl."},
-	{"retakes", "Retakes", "cs2-retakes with instadefuse and RetakesAllocator, with ChatControl."},
-	{"chatcontrol", "ChatControl", "ChatControl alone, on the stock competitive game."},
+	{
+		Name:  "matchzy",
+		Label: "MatchZy",
+		Desc:  "MatchZy for practice and pugs, with ChatControl.",
+		Help:  matchzyHelp,
+		Docs:  matchzyDocs,
+	},
+	{
+		Name:  "retakes",
+		Label: "Retakes",
+		Desc:  "cs2-retakes with instadefuse and RetakesAllocator, with ChatControl.",
+		Help:  retakesHelp,
+		Docs:  retakesDocs,
+	},
+	{
+		Name:  "chatcontrol",
+		Label: "ChatControl",
+		Desc:  "ChatControl alone, on the stock competitive game.",
+		Help:  chatcontrolHelp,
+		Docs:  chatcontrolDocs,
+	},
 }
 
 func modeLabel(name string) string {

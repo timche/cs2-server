@@ -131,6 +131,40 @@ button {
   text-decoration: underline;
   padding: .4rem;
 }
+.help { margin-top: 1rem; }
+.help h2 { font-size: 1rem; margin: 0 0 .25rem; }
+.help h3 {
+  font-size: .8125rem;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  color: var(--muted);
+  margin: 1.25rem 0 .5rem;
+}
+.help h3:first-of-type { margin-top: 1rem; }
+.help p { margin: 0 0 .25rem; color: var(--muted); font-size: .875rem; }
+.cmds { margin: 0; display: grid; grid-template-columns: auto 1fr; gap: .35rem .8rem; }
+.cmds dt { min-width: 0; }
+.cmds dd { margin: 0; font-size: .875rem; color: var(--muted); min-width: 0; }
+code {
+  font: .8125rem/1.4 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  padding: .1rem .3rem;
+  white-space: nowrap;
+}
+@media (max-width: 30rem) {
+  .cmds { grid-template-columns: 1fr; gap: .15rem; }
+  .cmds dd { margin-bottom: .6rem; }
+}
+.docs { margin: 1.25rem 0 0; font-size: .875rem; }
+.docs a { color: var(--accent); }
+/* The commands follow the selected mode, so the page answers "what will I get"
+   before the switch as well as "what do I have now". */
+.mode-help { display: none; }
+{{range .Modes}}
+main:has(#mode-{{.Name}}:checked) #help-{{.Name}} { display: block; }
+{{end}}
 </style>
 </head>
 <body>
@@ -147,7 +181,7 @@ button {
       <legend>Mode</legend>
       {{range .Modes}}
       <label class="mode">
-        <input type="radio" name="mode" value="{{.Name}}"{{if .Checked}} checked{{end}}>
+        <input type="radio" id="mode-{{.Name}}" name="mode" value="{{.Name}}"{{if .Checked}} checked{{end}}>
         <span>
           <span class="mode-name">{{.Label}}</span>
           <span class="mode-desc">{{.Desc}}</span>
@@ -159,6 +193,17 @@ button {
     <button type="submit">Switch and restart</button>
   </form>
 </div>
+<section class="card help">
+  <h2>Commands</h2>
+  <p>Type these in the in-game chat, where <code>!command</code> and <code>/command</code> also work — <code>/</code> keeps the message out of everyone else's chat. The list follows the mode selected above.</p>
+  {{template "groups" .Shared}}
+  {{range .Modes}}
+  <div class="mode-help" id="help-{{.Name}}">
+    {{template "groups" .Help}}
+    <p class="docs">More: {{range $i, $d := .Docs}}{{if $i}} · {{end}}<a href="{{$d.URL}}" target="_blank" rel="noreferrer noopener">{{$d.Label}}</a>{{end}}</p>
+  </div>
+  {{end}}
+</section>
 <form method="post" action="/signout" class="signout"><button type="submit">Sign out</button></form>
 <script>
 var line = document.getElementById("status");
@@ -187,3 +232,15 @@ setInterval(function () {
 </main>
 </body>
 </html>
+{{define "groups"}}
+  {{range .}}
+  <h3>{{.Title}}</h3>
+  {{with .Note}}<p>{{.}}</p>{{end}}
+  <dl class="cmds">
+    {{range .Commands}}
+    <dt><code>{{.Trigger}}</code></dt>
+    <dd>{{.Desc}}</dd>
+    {{end}}
+  </dl>
+  {{end}}
+{{end}}

@@ -101,6 +101,7 @@ type pageData struct {
 	SignedIn   bool
 	CSRF       string
 	Modes      []modeChoice
+	Shared     []group
 	Online     bool
 	Status     string
 	Restarting bool
@@ -148,6 +149,7 @@ func (s *server) handleIndex(w http.ResponseWriter, r *http.Request) {
 	data := pageData{
 		SignedIn: true,
 		CSRF:     s.csrfToken(expires),
+		Shared:   sharedHelp,
 		Online:   probe == nil,
 		Status:   statusText(probe, current),
 	}

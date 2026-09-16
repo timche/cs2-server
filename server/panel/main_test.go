@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"encoding/binary"
+	"html/template"
 	"io"
 	"net"
 	"net/http"
@@ -328,6 +329,54 @@ func TestIndexReportsUnknownModeAndOfflineServer(t *testing.T) {
 	}
 	if !strings.Contains(rec.Body.String(), "Offline · Mode unknown") {
 		t.Error("page does not report an offline server with no mode set")
+	}
+}
+
+func TestIndexRendersCommandsForEveryMode(t *testing.T) {
+	s := testServer(t)
+	if err := writeMode(s.cfg.modeFile, "retakes"); err != nil {
+		t.Fatalf("writeMode: %v", err)
+	}
+	cookie := signIn(t, s)
+
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	req.AddCookie(cookie)
+	rec := httptest.NewRecorder()
+	s.routes().ServeHTTP(rec, req)
+	body := rec.Body.String()
+
+	for _, want := range []string{
+		sharedHelp[0].Commands[0].Trigger,
+		matchzyHelp[0].Commands[0].Trigger,
+		retakesHelp[1].Commands[0].Trigger,
+		chatcontrolHelp[0].Commands[0].Trigger,
+		"https://shobhit-pathak.github.io/MatchZy/",
+	} {
+		if !strings.Contains(body, template.HTMLEscapeString(want)) {
+			t.Errorf("page is missing %q", want)
+		}
+	}
+	// The rule that reveals a mode's commands has to survive the CSS escaper.
+	for _, m := range modes {
+		rule := "main:has(#mode-" + m.Name + ":checked) #help-" + m.Name
+		if !strings.Contains(body, rule) {
+			t.Errorf("page is missing the rule %q", rule)
+		}
+		if !strings.Contains(body, `id="help-`+m.Name+`"`) {
+			t.Errorf("page is missing the commands for %q", m.Name)
+		}
+	}
+	if strings.Contains(body, "ZgotmplZ") {
+		t.Error("the template escaper blanked something out")
+	}
+}
+
+func TestSignedOutPageHasNoCommands(t *testing.T) {
+	s := testServer(t)
+	rec := httptest.NewRecorder()
+	s.routes().ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/", nil))
+	if strings.Contains(rec.Body.String(), template.HTMLEscapeString(retakesHelp[0].Commands[0].Trigger)) {
+		t.Error("the sign-in page lists the commands")
 	}
 }
 

@@ -58,6 +58,7 @@ Versions are resolved at boot from GitHub `releases/latest` and the AlliedModder
 - **The panel publishes no port when a tunnel is configured**, `cloudflared` reaching it at `panel:8080` on the compose network; `install.sh` writes a `docker-compose.override.yml` publishing `127.0.0.1:${PANEL_PORT}` only when there is no tunnel, and removes it when a rerun adds one. Keeping the publish out of `docker-compose.yml` is what stops it colliding with whatever else holds 8080 on the host, and what keeps a hand-edit from being overwritten on the next install.
 - **It trusts `X-Forwarded-Proto` for the `Secure` cookie flag**, which is only safe because it is never published on a real interface — on 127.0.0.1 or not at all. Publishing it outward would make that header attacker-controlled.
 - The session is a signed cookie with no server-side store, keyed by `PANEL_SECRET` — changing that value logs everyone out.
+- **The command list in `commands.go` is written by hand, from the plugins' own docs**, and shown for whichever mode the radio has selected rather than the one running — the panel is where someone decides what to switch to. `page.html` reveals one mode's block with a `main:has(#mode-<name>:checked)` rule generated per mode, so the list needs no JavaScript and no round trip. A plugin that renames or drops a command does not announce it; `server/README.md` carries the same commands and the two are updated together.
 
 ### Cloudflare tunnel
 

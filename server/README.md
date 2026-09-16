@@ -118,7 +118,7 @@ docker compose down                     # stop it
 
 ## Match demos
 
-GOTV is on, so MatchZy records each pug match to `data/game/csgo/MatchZy/`. Set `TV_ENABLE=0` in `.env` to turn it off; `TV_AUTORECORD` stays off either way, since MatchZy starts recording itself.
+GOTV is off by default. Set `TV_ENABLE=1` in `.env` and restart, and MatchZy records each pug match to `data/game/csgo/MatchZy/`. Leave `TV_AUTORECORD` off either way, since MatchZy starts recording itself.
 
 ## How the plugins get installed
 
@@ -140,7 +140,7 @@ Everything in `.env` is passed to the image; its [README](https://github.com/joe
 | `CS2_MODE` | Mode to start in before the panel has written one. |
 | `RETAKES_ADMIN_STEAM_IDS` | Steam64 IDs that get `@css/root`, comma-separated. |
 | `CS2_PORT`, `CS2_MAXPLAYERS` | Game port, and server slots. How many of the slots play in retakes mode is cs2-retakes' own `MaxPlayers` (9 by default, 10 at most), with the rest waiting in the queue. |
-| `TV_ENABLE`, `TV_PORT` | GOTV, which is how MatchZy records demos. |
+| `TV_ENABLE`, `TV_PORT` | GOTV, which is how MatchZy records demos. Off by default. |
 | `CS2_LOG` | Server logging, off unless you are chasing a problem. |
 | `PANEL_PORT`, `PANEL_PASSWORD`, `PANEL_SECRET` | The panel's port on `127.0.0.1` when it publishes one at all, its password and its session key. |
 | `COMPOSE_PROFILES`, `TUNNEL_TOKEN` | `tunnel` starts `cloudflared` with the token. |

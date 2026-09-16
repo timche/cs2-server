@@ -28,7 +28,7 @@ curl -fsSL https://raw.githubusercontent.com/timche/cs2-server/main/server/insta
 
 Every question the existing `.env` already answers is skipped and that value kept, so an update asks only which folder, fetches the current `docker-compose.yml` and `pre.sh` and offers to restart. Keys you added to `.env` yourself are kept too, at the end of the file. Delete a line from `.env` to be asked that question again.
 
-Restarting is what applies it: `docker compose up -d --pull always` takes a new panel image, and `pre.sh` updates the plugins on the way up. The mode file is never rewritten — the panel owns it, and after a switch it belongs to root.
+Restarting is what applies it, and it takes both commands: `docker compose up -d --pull always` takes a new panel image, and `docker compose restart cs2` re-runs `pre.sh`, which is what updates Metamod, CounterStrikeSharp and the plugins. `up -d` alone leaves the game server running — its config has not changed, and a bind-mounted `pre.sh` with new contents is not something compose can see. The mode file is never rewritten — the panel owns it, and after a switch it belongs to root.
 
 ### The daily restart
 
@@ -140,7 +140,8 @@ Spawns live in `data/game/csgo/addons/counterstrikesharp/plugins/RetakesPlugin/m
 ```sh
 docker compose logs -f                  # watch the server
 docker compose restart                  # restart it
-docker compose up -d --pull always      # restart, update the plugins and the panel
+docker compose restart cs2              # re-run pre.sh: updates the plugins
+docker compose up -d --pull always      # take a new panel image
 docker compose down                     # stop it
 ```
 

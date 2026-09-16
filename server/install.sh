@@ -458,12 +458,16 @@ if [[ "$(stat -c %u "${DIR}/data" 2>/dev/null || echo unknown)" != 1000 ]]; then
 	fi
 elif (( updating )); then
 	if confirm "Restart the server to pick the changes up?"; then
-		(cd "$DIR" && docker compose up -d --pull always)
+		# up -d takes a new panel image but leaves the game server alone: its
+		# config has not changed, and pre.sh changing under a bind mount is not
+		# something compose can see. Only a restart re-runs the boot hook.
+		(cd "$DIR" && docker compose up -d --pull always && docker compose restart cs2)
 		say ""
-		say "The server is restarting. pre.sh updates the plugins on the way up."
+		say "The server is restarting. pre.sh updates the game's plugins on the way up."
 	else
 		say ""
-		say "Pick them up later with: cd ${DIR} && docker compose up -d --pull always"
+		say "Pick them up later with:"
+		say "  cd ${DIR} && docker compose up -d --pull always && docker compose restart cs2"
 	fi
 elif confirm "Start the server now?"; then
 	(cd "$DIR" && docker compose up -d)

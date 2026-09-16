@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# Installs and updates Metamod:Source, CounterStrikeSharp, cs2-retakes,
-# cs2-instadefuse, RetakesAllocator and ChatControl into the CS2 server, then
-# applies their configuration.
+# Installs and updates Metamod:Source, CounterStrikeSharp, MatchZy, cs2-retakes,
+# cs2-instadefuse, RetakesAllocator and ChatControl into the CS2 server, enables
+# the plugins the current mode wants, then applies their configuration.
 #
 # The image's entry.sh *sources* this file after SteamCMD has updated the game
 # and before it launches cs2.sh, so it must never call exit at the top level --
@@ -13,12 +13,55 @@
 set -euo pipefail
 
 CSGO="${STEAMAPPDIR}/game/csgo"
-STATE="${STEAMAPPDIR}/.retakes"
+STATE="${STEAMAPPDIR}/.cs2"
 CSS_CONFIGS="${CSGO}/addons/counterstrikesharp/configs"
+PLUGINS="${CSGO}/addons/counterstrikesharp/plugins"
+DISABLED="${PLUGINS}/disabled"
 MMS_DROP="https://mms.alliedmods.net/mmsdrop/2.0"
 CONVAR_CFG="cs2-server.cfg"
 
-log() { echo "[retakes] $*"; }
+log() { echo "[cs2] $*"; }
+
+# The panel owns .control/mode, mounted read-only here; the environment only
+# says which mode to come up in before the panel has ever written one.
+resolve_mode() {
+	local file="${STEAMAPPDIR}/.control/mode"
+
+	MODE=""
+	if [[ -f "$file" ]]; then
+		MODE="$(tr -d '[:space:]' <"$file" || true)"
+	fi
+	case "$MODE" in
+		matchzy|retakes|chatcontrol) return 0 ;;
+		"") ;;
+		*) log "WARNING: ${file} holds \"${MODE}\", which is not a mode" ;;
+	esac
+
+	MODE="${CS2_MODE:-chatcontrol}"
+	case "$MODE" in
+		matchzy|retakes|chatcontrol) ;;
+		*)
+			log "WARNING: CS2_MODE is \"${MODE}\", which is not a mode"
+			MODE="chatcontrol"
+			;;
+	esac
+}
+
+# Which plugin directories a component brought with it, so activate can park
+# exactly those. An archive may unpack at the game root, at the
+# CounterStrikeSharp root or at the plugin root, so the names come from the
+# archive rather than being written down here.
+record_plugins() {
+	local name="$1" root="$2" dest="$3" dir rel
+
+	mkdir -p "$STATE"
+	: >"${STATE}/${name}.plugins"
+	while IFS= read -r dir; do
+		rel="${dir#"${root}/"}"
+		[[ "$(dirname "${dest}/${rel}")" == "$PLUGINS" ]] || continue
+		basename "$rel" >>"${STATE}/${name}.plugins"
+	done < <(find "$root" -mindepth 1 -type d)
+}
 
 # sync <name> <version> <url> <destination>
 sync() {
@@ -32,26 +75,27 @@ sync() {
 
 	log "installing ${name} ${version}"
 	tmp="$(mktemp -d)"
-	mkdir -p "$dest"
+	mkdir -p "$dest" "${tmp}/unpacked"
 	if curl -fsSL --retry 3 -o "${tmp}/package" "$url"; then
 		case "$url" in
-			*.tar.gz) tar -xzf "${tmp}/package" -C "$dest" || status=1 ;;
+			*.tar.gz) tar -xzf "${tmp}/package" -C "${tmp}/unpacked" || status=1 ;;
 			# The allocator's zip was built on Windows: its paths use backslash
 			# separators, which Info-ZIP translates but exits 1 to warn about --
 			# only 2 and up are real errors -- and its directory entries carry no
-			# execute bit, which would leave the server unable to enter the
-			# plugin's own runtimes/ directory. Hence unpacking aside and
-			# repairing before anything lands in the server tree.
+			# execute bit, which stops the walk below descending into them and
+			# would leave the server unable to enter the plugin's own runtimes/
+			# directory. Hence unpacking aside and repairing first.
 			*.zip)
 				unzip -q -o "${tmp}/package" -d "${tmp}/unpacked" || status=$?
 				(( status > 1 )) || status=0
-				if (( status == 0 )); then
-					chmod -R u+rwX "${tmp}/unpacked" &&
-						cp -a "${tmp}/unpacked/." "$dest/" || status=1
-				fi
 				;;
 			*) log "ERROR: cannot unpack ${url}"; status=1 ;;
 		esac
+		if (( status == 0 )); then
+			chmod -R u+rwX "${tmp}/unpacked" &&
+				record_plugins "$name" "${tmp}/unpacked" "$dest" &&
+				cp -a "${tmp}/unpacked/." "$dest/" || status=1
+		fi
 	else
 		status=1
 	fi
@@ -90,6 +134,54 @@ keep_installed() {
 		return 1
 	fi
 	log "WARNING: could not check ${1} for updates, keeping $(cat "$stamp")"
+}
+
+# Everything parked comes back before the syncs run, so an update reaches the
+# plugins of the modes nobody is playing and a later switch waits on no
+# download. A name in both places means the live copy is the one that counts.
+restore_all() {
+	local dir plugin
+
+	[[ -d "$DISABLED" ]] || return 0
+	for dir in "$DISABLED"/*/; do
+		[[ -d "$dir" ]] || continue
+		plugin="$(basename "$dir")"
+		if [[ -e "${PLUGINS}/${plugin}" ]]; then
+			rm -rf "$dir"
+			continue
+		fi
+		mv "$dir" "${PLUGINS}/${plugin}"
+	done
+}
+
+# CounterStrikeSharp's loader skips a directory called "disabled" at the plugin
+# root, whatever its case. Parking a plugin there rather than deleting it is
+# what keeps the spawns edited in game and the configs CounterStrikeSharp
+# generates on first load and never rewrites.
+park() {
+	local name="$1" plugin
+
+	[[ -f "${STATE}/${name}.plugins" ]] || return 0
+	while IFS= read -r plugin; do
+		[[ -n "$plugin" && -d "${PLUGINS}/${plugin}" ]] || continue
+		mkdir -p "$DISABLED"
+		rm -rf "${DISABLED:?}/${plugin}"
+		mv "${PLUGINS}/${plugin}" "${DISABLED}/${plugin}"
+		log "disabled ${plugin}"
+	done <"${STATE}/${name}.plugins"
+}
+
+# ChatControl is in no mode's list, so it is never parked.
+activate() {
+	local component
+
+	log "mode: ${MODE}"
+	for component in matchzy retakes instadefuse allocator; do
+		case "${MODE}:${component}" in
+			matchzy:matchzy|retakes:retakes|retakes:instadefuse|retakes:allocator) continue ;;
+		esac
+		park "$component"
+	done
 }
 
 register_metamod() {
@@ -174,44 +266,72 @@ configure_admins() {
 }
 
 configure() {
-	mkdir -p "${CSGO}/cfg"
-	cat >"${CSGO}/cfg/${CONVAR_CFG}" <<-EOF
-		chatcontrol_everyone_is_admin 1
-	EOF
+	local label servername="${CS2_SERVERNAME:-CS2}"
 
-	# One call site, where matchzy has two: the rest of the game convars are
-	# retakes' own cfg/cs2-retakes/retakes.cfg, which it only fills in when the
-	# file does not already exist, so nothing here may create or touch it.
+	case "$MODE" in
+		matchzy) label="MatchZy" ;;
+		retakes) label="Retakes" ;;
+		*) label="ChatControl" ;;
+	esac
+
+	mkdir -p "${CSGO}/cfg"
+	{
+		# The image templates CS2_SERVERNAME into cfg/server.cfg, which runs
+		# before gamemode_competitive_server.cfg execs this file, so this
+		# hostname wins -- which is what puts the mode in the server browser
+		# without recreating the container.
+		printf 'hostname "%s | %s"\n' "${servername//\"/}" "$label"
+		printf 'chatcontrol_everyone_is_admin 1\n'
+		if [[ "$MODE" == "matchzy" ]]; then
+			printf 'matchzy_everyone_is_admin true\n'
+		fi
+	} >"${CSGO}/cfg/${CONVAR_CFG}"
+
+	# Two call sites on purpose: CounterStrikeSharp gives no load-order guarantee,
+	# so the convars are applied both when MatchZy loads and on every map load.
+	# MatchZy's archive overwrites its own config.cfg, hence re-applying here.
+	# The rest of the game convars in retakes mode are retakes' own
+	# cfg/cs2-retakes/retakes.cfg, which it fills in only when the file does not
+	# already exist, so nothing here may create or touch it.
+	exec_convars_from "${CSGO}/cfg/MatchZy/config.cfg"
 	exec_convars_from "${CSGO}/cfg/gamemode_competitive_server.cfg"
 }
 
 failed=0
+resolve_mode
+restore_all || failed=1
 sync_metamod || keep_installed metamod || failed=1
 sync_release counterstrikesharp roflmuffin/CounterStrikeSharp \
 	'^counterstrikesharp-with-runtime-linux-.*\.zip$' "$CSGO" ||
 	keep_installed counterstrikesharp || failed=1
+# The plugin-only asset, not MatchZy-*-with-cssharp-*: that bundle pins an older
+# CounterStrikeSharp than ChatControl requires.
+sync_release matchzy shobhit-pathak/MatchZy \
+	'^MatchZy-[0-9.]+\.zip$' "$CSGO" ||
+	keep_installed matchzy || failed=1
 # The plain asset, not RetakesPlugin-*-no-map-configs: the map configs are the
 # spawns, so an update replaces spawns edited in game with upstream's.
 sync_release retakes B3none/cs2-retakes \
 	'^RetakesPlugin-[0-9.]+\.zip$' "$CSGO" ||
 	keep_installed retakes || failed=1
 sync_release instadefuse B3none/cs2-instadefuse \
-	'^cs2-instadefuse-.*\.zip$' "${CSGO}/addons/counterstrikesharp/plugins" ||
+	'^cs2-instadefuse-.*\.zip$' "$PLUGINS" ||
 	keep_installed instadefuse || failed=1
 sync_release allocator Micka2302/cs2-retakes-allocator-2.0 \
 	'^RetakesAllocator\.zip$' "${CSGO}/addons/counterstrikesharp" ||
 	keep_installed allocator || failed=1
 sync_release chatcontrol timche/cs2-chat-control \
-	'^ChatControl-.*\.zip$' "${CSGO}/addons/counterstrikesharp/plugins" ||
+	'^ChatControl-.*\.zip$' "$PLUGINS" ||
 	keep_installed chatcontrol || failed=1
 register_metamod || failed=1
 # After the syncs, so a CounterStrikeSharp reinstall cannot undo them.
 configure_retakes || failed=1
 configure_admins || failed=1
-configure
+activate || failed=1
+configure || failed=1
 
 if (( failed )); then
 	exit 1
 fi
 log "ready"
-) || echo "[retakes] WARNING: plugin setup did not finish, starting the server anyway"
+) || echo "[cs2] WARNING: plugin setup did not finish, starting the server anyway"

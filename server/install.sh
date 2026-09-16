@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
-# Sets up a retakes CS2 server on this machine. Run it straight from the repo:
-#   curl -fsSL https://raw.githubusercontent.com/timche/cs2-server/main/retakes/install.sh | bash
+# Sets up a CS2 server on this machine. Run it straight from the repo:
+#   curl -fsSL https://raw.githubusercontent.com/timche/cs2-server/main/server/install.sh | bash
 set -euo pipefail
 
 REPO="${REPO:-timche/cs2-server}"
 REF="${REF:-main}"
-DIR="${DIR:-cs2-retakes}"
-BASE_URL="${BASE_URL:-https://raw.githubusercontent.com/${REPO}/${REF}/retakes}"
+DIR="${DIR:-cs2-server}"
+BASE_URL="${BASE_URL:-https://raw.githubusercontent.com/${REPO}/${REF}/server}"
 
 say() { printf '%s\n' "$*" >&2; }
 fail() { printf '\n%s\n' "$*" >&2; exit 1; }
@@ -90,6 +90,18 @@ ask_steam_id() {
 	printf '%s' "$value"
 }
 
+ask_mode() {
+	local value
+	while true; do
+		value="$(ask "$1" "$2")"
+		case "$value" in
+			matchzy|retakes|chatcontrol) break ;;
+		esac
+		say "Enter matchzy, retakes or chatcontrol."
+	done
+	printf '%s' "$value"
+}
+
 confirm() {
 	local answer
 	printf '%s [Y/n]: ' "$1" >/dev/tty
@@ -104,7 +116,7 @@ docker compose version >/dev/null 2>&1 ||
 	fail "The Docker Compose plugin is missing. Install it with:
   curl -fsSL https://get.docker.com | sh"
 
-say "Setting up a retakes CS2 server"
+say "Setting up a CS2 server"
 say ""
 
 DIR="$(ask "Folder to create" "$DIR")"
@@ -112,22 +124,17 @@ if [[ -f "${DIR}/.env" ]]; then
 	say "${DIR} already holds a server. Answers from the last run are offered as defaults."
 fi
 
-servername="$(ask_without_slash "Server name" "$(saved CS2_SERVERNAME Retakes)")"
+servername="$(ask_without_slash "Server name" "$(saved CS2_SERVERNAME CS2)")"
 say ""
 say "Every player on this server gets a chat command that runs arbitrary server"
-say "commands. A password keeps that to the people you invite."
+say "commands, and in matchzy mode the run of MatchZy as well. A password keeps that"
+say "to the people you invite."
 password="$(ask_without_slash "Server password, or none to run without one" "$(saved CS2_PW "$(generate_password)")")"
 if [[ "$password" == "none" ]]; then
 	password=""
 fi
 
 rconpw="$(ask_without_slash "RCON password" "$(saved CS2_RCONPW "$(generate_password)")")"
-
-say ""
-say "Your Steam64 ID makes you an admin of the retakes plugins: the spawn editor,"
-say "!forcebombsite, !scramble and !setnextround. Find it at https://steamid.io"
-say "Leave it empty to run without an admin."
-adminid="$(ask_steam_id "Steam64 ID" "$(saved RETAKES_ADMIN_STEAM_IDS "")")"
 
 say ""
 say "A game server login token lists the server publicly. Create one for app ID 730 at"
@@ -138,7 +145,38 @@ say ""
 port="$(ask_number "Game port" "$(saved CS2_PORT 27015)")"
 maxplayers="$(ask_number "Maximum players" "$(saved CS2_MAXPLAYERS 12)")"
 
-mkdir -p "$DIR"
+say ""
+say "In retakes mode, your Steam64 ID makes you an admin of the retakes plugins: the"
+say "spawn editor, !forcebombsite, !scramble and !setnextround. They ask"
+say "CounterStrikeSharp who is an admin, which the everyone-gets-admin setting above"
+say "does not answer. Find your ID at https://steamid.io, or leave it empty."
+adminid="$(ask_steam_id "Steam64 ID" "$(saved RETAKES_ADMIN_STEAM_IDS "")")"
+
+say ""
+say "The server runs one of three modes: matchzy for practice and pug matches,"
+say "retakes, or chatcontrol for plain competitive. The panel switches between them"
+say "later, so this is only where it starts."
+mode="$(ask_mode "Mode to start in" "$(saved CS2_MODE chatcontrol)")"
+
+say ""
+say "The panel switches the mode and restarts the server, so its password is what"
+say "keeps that to the people you trust with it."
+panelpw="$(ask "Panel password" "$(saved PANEL_PASSWORD "$(generate_password)")")"
+panelport="$(ask_number "Panel port on 127.0.0.1" "$(saved PANEL_PORT 8080)")"
+panelsecret="$(saved PANEL_SECRET "$(generate_password)")"
+
+say ""
+say "A Cloudflare tunnel reaches the panel from anywhere without opening a port. In"
+say "Cloudflare Zero Trust, go to Networks > Tunnels, create a tunnel, route its"
+say "public hostname to http://panel:8080 and copy the token it hands you. Leave this"
+say "empty to run without a tunnel."
+tunnel="$(ask "Cloudflare tunnel token" "$(saved TUNNEL_TOKEN "")")"
+profiles=""
+if [[ -n "$tunnel" ]]; then
+	profiles="tunnel"
+fi
+
+mkdir -p "${DIR}/data" "${DIR}/control"
 curl -fsSL "${BASE_URL}/docker-compose.yml" -o "${DIR}/docker-compose.yml"
 curl -fsSL "${BASE_URL}/pre.sh" -o "${DIR}/pre.sh"
 chmod +x "${DIR}/pre.sh"
@@ -151,6 +189,7 @@ CS2_SERVERNAME=${servername}
 CS2_PW=${password}
 CS2_RCONPW=${rconpw}
 
+CS2_MODE=${mode}
 RETAKES_ADMIN_STEAM_IDS=${adminid}
 
 CS2_PORT=${port}
@@ -161,13 +200,21 @@ CS2_GAMEALIAS=competitive
 CS2_SERVER_HIBERNATE=0
 CS2_LOG=off
 
-TV_ENABLE=0
+TV_ENABLE=1
 TV_PORT=27020
 TV_AUTORECORD=0
+
+PANEL_PORT=${panelport}
+PANEL_PASSWORD=${panelpw}
+PANEL_SECRET=${panelsecret}
+
+COMPOSE_PROFILES=${profiles}
+TUNNEL_TOKEN=${tunnel}
 EOF
 
 say ""
-say "Wrote ${DIR}/.env, ${DIR}/docker-compose.yml and ${DIR}/pre.sh."
+say "Wrote ${DIR}/.env, ${DIR}/docker-compose.yml and ${DIR}/pre.sh. The game files go"
+say "in ${DIR}/data and the panel's mode file in ${DIR}/control."
 if [[ -z "$password" ]]; then
 	say ""
 	say "This server has no password, so anyone who finds it can run server commands."
@@ -175,23 +222,39 @@ if [[ -z "$password" ]]; then
 fi
 if [[ -z "$adminid" ]]; then
 	say ""
-	say "No admin was set, so nobody can edit spawns or force a bombsite. Add Steam64"
-	say "IDs to RETAKES_ADMIN_STEAM_IDS in ${DIR}/.env, comma-separated, and restart."
+	say "No admin was set, so in retakes mode nobody can edit spawns or force a"
+	say "bombsite. Add Steam64 IDs to RETAKES_ADMIN_STEAM_IDS in ${DIR}/.env,"
+	say "comma-separated, and restart."
 fi
 say ""
 
-if ! confirm "Start the server now?"; then
+# The server runs as uid 1000 and a bind mount keeps the ownership the folder has
+# here, so data/ has to belong to 1000 or SteamCMD cannot write the game files.
+# control/ needs nothing: the panel container runs as root.
+if [[ "$(id -u)" != 1000 ]]; then
+	say "One thing is left, and it needs root. The server runs as uid 1000, which does"
+	say "not own ${DIR}/data, so it cannot download the game there. Run:"
+	say ""
+	say "  sudo chown -R 1000:1000 ${DIR}/data"
+	say ""
+	say "and then start the server with: cd ${DIR} && docker compose up -d"
+	say "It downloads about 60 GB of game files on the first run."
+elif confirm "Start the server now?"; then
+	(cd "$DIR" && docker compose up -d)
+	say ""
+	say "The server is starting. It downloads about 60 GB of game files on the first run,"
+	say "so give it a while before it shows up."
+else
 	say ""
 	say "Start it later with: cd ${DIR} && docker compose up -d"
-	exit 0
 fi
 
-(cd "$DIR" && docker compose up -d)
-
 say ""
-say "The server is starting. It downloads about 60 GB of game files on the first run,"
-say "so give it a while before it shows up."
-say ""
-say "  Connect       connect <server-ip>:${port}${password:+; password ${password}}"
-say "  RCON password ${rconpw}"
-say "  Follow along  cd ${DIR} && docker compose logs -f"
+say "  Connect        connect <server-ip>:${port}${password:+; password ${password}}"
+say "  RCON password  ${rconpw}"
+say "  Panel          http://127.0.0.1:${panelport}"
+if [[ -n "$tunnel" ]]; then
+	say "                 and the hostname you routed to http://panel:8080 in Cloudflare"
+fi
+say "  Panel password ${panelpw}"
+say "  Follow along   cd ${DIR} && docker compose logs -f"

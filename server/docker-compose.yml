@@ -1,0 +1,44 @@
+services:
+  cs2:
+    image: joedwards32/cs2
+    restart: unless-stopped
+    env_file: .env
+    ports:
+      - "${CS2_PORT:-27015}:${CS2_PORT:-27015}/tcp"
+      - "${CS2_PORT:-27015}:${CS2_PORT:-27015}/udp"
+      - "${TV_PORT:-27020}:${TV_PORT:-27020}/udp"
+    volumes:
+      # The server runs as uid 1000 and a bind mount keeps its host ownership,
+      # so data/ has to belong to 1000 or SteamCMD cannot write the game files.
+      - ./data:/home/steam/cs2-dedicated/
+      # entry.sh only writes its own pre.sh when none exists, so this wins.
+      - ./pre.sh:/home/steam/cs2-dedicated/pre.sh:ro
+      # The mode is the panel's to write and the game server's to read, hence
+      # read-only here. Mounted at a path inside data/'s mount point on purpose:
+      # pre.sh reads the mode as a plain file under $STEAMAPPDIR while the panel
+      # never sees anything but this one directory, which is why control/ is a
+      # sibling of data/ on the host rather than a directory inside it.
+      - ./control:/home/steam/cs2-dedicated/.control:ro
+
+  panel:
+    image: ghcr.io/timche/cs2-server/panel:main
+    restart: unless-stopped
+    # Named rather than env_file: the panel has no business with the login token.
+    environment:
+      PANEL_PASSWORD: "${PANEL_PASSWORD:-}"
+      PANEL_SECRET: "${PANEL_SECRET:-}"
+      CS2_RCONPW: "${CS2_RCONPW:-}"
+      CS2_RCON_ADDR: "cs2:${CS2_PORT:-27015}"
+    # Localhost only: reaching the panel from anywhere else is the tunnel's job.
+    ports:
+      - "127.0.0.1:${PANEL_PORT:-8080}:8080"
+    volumes:
+      - ./control:/control
+
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    restart: unless-stopped
+    profiles: [tunnel]
+    command: tunnel --no-autoupdate run
+    environment:
+      TUNNEL_TOKEN: "${TUNNEL_TOKEN:-}"

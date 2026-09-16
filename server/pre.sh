@@ -245,6 +245,28 @@ configure_retakes() {
 		'. * {GameSettings: {EnableFallbackAllocation: false}}'
 }
 
+# MatchZy registers css_map and css_rcon too, and CounterStrikeSharp dispatches a
+# shared command name to every plugin that registered it, so running both stock
+# means .map changes the level twice and .rcon runs the server command twice --
+# genuinely harmful for anything that is not idempotent. ChatControl's map
+# command understands workshop URLs, which MatchZy's does not, so it is renamed
+# rather than switched off; its rcon would be the same command twice and goes.
+# Written in every mode, not only matchzy, because a switch away has to put the
+# names back. CounterStrikeSharp deserializes whatever file is there and only
+# generates one when none exists, so seeding these two keys before the first
+# plugin load leaves every other key at the plugin's default.
+configure_chatcontrol() {
+	local map="map" rcon="rcon" patch
+
+	if [[ "$MODE" == "matchzy" ]]; then
+		map="wmap"
+		rcon=""
+	fi
+	patch="$(jq -nc --arg map "$map" --arg rcon "$rcon" \
+		'{MapCommandName: $map, RconCommandName: $rcon}')"
+	merge_json "${CSS_CONFIGS}/plugins/ChatControl/ChatControl.json" ". * ${patch}"
+}
+
 # Retakes and the allocator ask CounterStrikeSharp whether a player holds
 # @css/root, a question chatcontrol_everyone_is_admin does not answer: that only
 # bypasses ChatControl's own check. Merged rather than replaced so entries added
@@ -326,6 +348,7 @@ sync_release chatcontrol timche/cs2-chat-control \
 register_metamod || failed=1
 # After the syncs, so a CounterStrikeSharp reinstall cannot undo them.
 configure_retakes || failed=1
+configure_chatcontrol || failed=1
 configure_admins || failed=1
 activate || failed=1
 configure || failed=1

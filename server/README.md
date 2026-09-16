@@ -68,7 +68,9 @@ The retakes plugins ask CounterStrikeSharp instead, which knows only the Steam64
 
 ## Using it
 
-ChatControl is always there: `.map de_dust2` changes map, `.rcon <command>` runs a server command, and `.aim` and `.aimpistol` load the aim presets.
+ChatControl is always there: `.map de_dust2` changes map, `.rcon <command>` runs a server command, and `.aim` and `.aimpistol` load the aim presets. Every command answers `!` and `/` as well as `.`, and `/` keeps it out of everyone else's chat.
+
+MatchZy has a `map` and an `rcon` command of its own, and CounterStrikeSharp hands a shared command name to every plugin that registered it, so in matchzy mode `pre.sh` renames ChatControl's to `wmap` and switches its `rcon` off. `.map` and `.rcon` are MatchZy's there, `.wmap` is how you load a workshop map, and nothing runs twice. The other two modes keep ChatControl's names.
 
 In matchzy mode the server starts in normal competitive play. `.prac` opens practice mode, with grenade spawns, bot placement and noclip; `.exitprac` leaves it again. For a match, everyone types `.ready` and MatchZy runs the knife round and the map itself.
 
@@ -149,5 +151,6 @@ The plugins keep their configuration in `data/game/csgo/addons/counterstrikeshar
 
 - `RetakesPlugin/RetakesPlugin.json` gets `GameSettings.EnableFallbackAllocation` set to `false`, because otherwise cs2-retakes and RetakesAllocator both hand out weapons. Everything else in that file is yours. CounterStrikeSharp writes the file whole on first load, so the [cs2-retakes README](https://github.com/B3none/cs2-retakes) is the list of what the other keys do.
 - `configs/admins.json` gets an `@css/root` entry per ID in `RETAKES_ADMIN_STEAM_IDS`. Entries added by hand are kept.
+- `ChatControl/ChatControl.json` gets `MapCommandName` and `RconCommandName`, so ChatControl and MatchZy do not answer the same command. Presets, `AllowedMaps` and `ChatPrefix` are yours.
 
 Game convars in retakes mode are cs2-retakes': it writes `cfg/cs2-retakes/retakes.cfg` on first load and execs it on every map start. Edit that file to change round time, freeze time or the round limit. Do not use `cfg/server.cfg`, which the image overwrites on every start; `cfg/cs2-server.cfg` is `pre.sh`'s and is overwritten too.

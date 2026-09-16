@@ -13,9 +13,11 @@ fail() { printf '\n%s\n' "$*" >&2; exit 1; }
 [[ -r /dev/tty ]] || fail "No terminal available for the setup questions. Download the script and run it instead:
   curl -fsSL ${BASE_URL}/install.sh -o install.sh && bash install.sh"
 
-for tool in nft tailscale systemctl; do
-	command -v "$tool" >/dev/null || fail "${tool} is not installed."
-done
+command -v systemctl >/dev/null || fail "systemd is required; this machine does not have it."
+command -v nft >/dev/null || fail "nft is not installed. On Debian or Ubuntu:
+  sudo apt-get install -y nftables"
+command -v tailscale >/dev/null || fail "tailscale is not installed. Install it and join the tailnet:
+  curl -fsSL https://tailscale.com/install.sh | sh && sudo tailscale up"
 
 mkdir -p "$DIR"
 curl -fsSL "${BASE_URL}/proxy.sh" -o "${DIR}/proxy.sh"

@@ -4,7 +4,14 @@ Runs a CS2 server at home without opening a port there. A VPS with a public IP f
 
 ## Install
 
-On the VPS, which needs `nftables`, `tailscale` and systemd and has to be on the same tailnet as the server:
+On the VPS, which needs `nftables`, `tailscale` and systemd and has to be on the same tailnet as the server. On a fresh Debian or Ubuntu machine this puts both in place and joins the tailnet:
+
+```sh
+sudo apt-get update && sudo apt-get install -y nftables
+curl -fsSL https://tailscale.com/install.sh | sh && sudo tailscale up
+```
+
+Then run the installer, which stops with the missing command if either is still absent:
 
 ```sh
 curl -fsSL https://raw.githubusercontent.com/timche/cs2-server/main/proxy/install.sh | bash

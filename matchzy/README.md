@@ -1,6 +1,6 @@
 # MatchZy CS2 server
 
-A Counter-Strike 2 dedicated server for 5v5 matches and pugs: the [joedwards32/CS2](https://github.com/joedwards32/CS2) image under Docker Compose, with [MatchZy](https://github.com/shobhit-pathak/MatchZy) and [ChatControl](https://github.com/timche/cs2-chat-control) installed on top and every player made an admin.
+A Counter-Strike 2 dedicated server for practice, ready to run 5v5 pug matches when you want one: the [joedwards32/CS2](https://github.com/joedwards32/CS2) image under Docker Compose, with [MatchZy](https://github.com/shobhit-pathak/MatchZy) and [ChatControl](https://github.com/timche/cs2-chat-control) installed on top and every player made an admin.
 
 ## Install
 
@@ -21,6 +21,8 @@ To do it by hand instead, copy `docker-compose.yml`, `pre.sh` and `.env.example`
 `matchzy_everyone_is_admin` and `chatcontrol_everyone_is_admin` are both on, so any player can start matches, change the map and run server commands from chat. ChatControl's `.rcon` command has no filter, which means an unpassworded server hands its console to whoever joins. Keep a server password set.
 
 ## Using it
+
+The server starts in normal competitive play. `.prac` opens practice mode, with grenade spawns, bot placement and noclip; `.exit` leaves it again. For a match, everyone types `.ready` and MatchZy runs the knife round and the map itself.
 
 MatchZy commands in chat, all available to everyone:
 
@@ -44,7 +46,9 @@ docker compose up -d --force-recreate   # restart and update the plugins
 docker compose down                     # stop it
 ```
 
-Match demos land in the volume under `game/csgo/MatchZy/`:
+## Match demos
+
+GOTV is off, so no demos are recorded. To keep demos of pug matches, set `TV_ENABLE=1` in `.env` and restart. MatchZy then records each match to `game/csgo/MatchZy/` in the volume:
 
 ```sh
 docker compose cp cs2:/home/steam/cs2-dedicated/game/csgo/MatchZy ./demos
@@ -61,5 +65,7 @@ CounterStrikeSharp is installed separately rather than taking MatchZy's `-with-c
 ## Configuration
 
 Everything in `.env` is passed to the image; its [README](https://github.com/joedwards32/CS2) lists the full set of variables. Values must not contain a slash, which the image's config templating cannot handle.
+
+GOTV (`TV_ENABLE`) and server logging (`CS2_LOG`) are both off, since practice needs neither. Turn `TV_ENABLE` on for match demos and `CS2_LOG` on when you are chasing a problem.
 
 Server convars go in `cfg/gamemode_competitive_server.cfg` inside the volume. Do not use `cfg/server.cfg`: the image overwrites it on every start.

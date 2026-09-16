@@ -12,13 +12,23 @@ curl -fsSL https://raw.githubusercontent.com/timche/cs2-server/main/server/insta
 
 It asks for a server name, a server password, an RCON password, a [game server login token](https://steamcommunity.com/dev/managegameservers) (app ID 730), a game port, a player limit, your Steam64 ID, the mode to start in, a panel password, an optional Cloudflare tunnel token and, when you go without one, a panel port, writes `cs2-server/.env` and starts the server. Set `DIR` to install somewhere else.
 
-Run it again on the same folder to update one. Every question the existing `.env` already answers is skipped and that value kept, so a rerun asks nothing, refreshes `docker-compose.yml` and `pre.sh` from the repo and leaves the server as it was. Keys you added to `.env` yourself are kept too, at the end of the file. Delete a line from `.env` to be asked that question again. The mode file is never rewritten — the panel owns it, and after a switch it belongs to root.
-
 Requirements: 2 CPUs, 2 GiB RAM and 60 GB of free disk. The first start downloads the whole game, which takes a while.
 
-The server's files live next to `docker-compose.yml`: the game and the plugins in `data/`, the mode file the panel writes in `control/`. The server runs as uid 1000 inside the container and a bind-mounted folder keeps the ownership it has on the host, so `data/` must belong to uid 1000 or SteamCMD cannot write to it. The installer says so and prints the `chown` when you are not uid 1000 yourself. Removing a server is deleting its folder.
+The server's files live next to `docker-compose.yml`: the game and the plugins in `data/`, the mode file the panel writes in `control/`. The server runs as uid 1000 inside the container and a bind-mounted folder keeps the ownership it has on the host, so `data/` must belong to uid 1000 or SteamCMD cannot write to it. The installer checks who owns it and prints the `chown` when it is not uid 1000. Removing a server is deleting its folder.
 
 To do it by hand instead, copy `docker-compose.yml`, `pre.sh` and `.env.example` into a directory, fill in `.env`, create `data/` and `control/` and run `docker compose up -d`. Without a Cloudflare tunnel you also want a `docker-compose.override.yml` to reach the panel; see below.
+
+## Updating
+
+The same command, pointed at a folder that already holds a server, is the update:
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/timche/cs2-server/main/server/install.sh | bash
+```
+
+Every question the existing `.env` already answers is skipped and that value kept, so an update asks only which folder, fetches the current `docker-compose.yml` and `pre.sh` and offers to restart. Keys you added to `.env` yourself are kept too, at the end of the file. Delete a line from `.env` to be asked that question again.
+
+Restarting is what applies it: `docker compose up -d --pull always` takes a new panel image, and `pre.sh` updates the plugins on the way up. The mode file is never rewritten — the panel owns it, and after a switch it belongs to root.
 
 ## Modes
 
@@ -118,7 +128,7 @@ Spawns live in `data/game/csgo/addons/counterstrikesharp/plugins/RetakesPlugin/m
 ```sh
 docker compose logs -f                  # watch the server
 docker compose restart                  # restart it
-docker compose up -d --force-recreate   # restart and update the plugins
+docker compose up -d --pull always      # restart, update the plugins and the panel
 docker compose down                     # stop it
 ```
 

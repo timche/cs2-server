@@ -215,13 +215,19 @@ docker compose version >/dev/null 2>&1 ||
 	fail "The Docker Compose plugin is missing. Install it with:
   curl -fsSL https://get.docker.com | sh"
 
-say "Setting up a CS2 server"
+say "Installing or updating a CS2 server"
 say ""
 
-DIR="$(ask "Folder to create" "$DIR")"
+DIR="$(ask "Server folder" "$DIR")"
+# An existing .env is what makes this an update rather than an install: the
+# questions it answers are skipped, so a rerun is how you take a new version of
+# docker-compose.yml, pre.sh and the panel image.
+updating=0
 if [[ -f "${DIR}/.env" ]]; then
-	say "${DIR} already holds a server, so every question its .env answers is skipped"
-	say "and that value kept. Delete a line from the file to be asked again."
+	updating=1
+	say "${DIR} already holds a server, so this is an update: every question its .env"
+	say "answers is skipped and that value kept. Delete a line from the file to be"
+	say "asked again."
 fi
 
 servername="$(ask_once CS2_SERVERNAME ask_without_slash "Server name" CS2)"
@@ -346,8 +352,12 @@ carry_over "${DIR}/.env.new"
 mv "${DIR}/.env.new" "${DIR}/.env"
 
 say ""
-say "Wrote ${DIR}/.env, ${DIR}/docker-compose.yml and ${DIR}/pre.sh. The game files go"
-say "in ${DIR}/data and the panel's mode file in ${DIR}/control."
+if (( updating )); then
+	say "Updated ${DIR}/docker-compose.yml and ${DIR}/pre.sh, and kept ${DIR}/.env."
+else
+	say "Wrote ${DIR}/.env, ${DIR}/docker-compose.yml and ${DIR}/pre.sh. The game files go"
+	say "in ${DIR}/data and the panel's mode file in ${DIR}/control."
+fi
 if [[ -z "$password" ]]; then
 	say ""
 	say "This server has no password, so anyone who finds it can run server commands."
@@ -363,16 +373,28 @@ say ""
 
 # The server runs as uid 1000 and a bind mount keeps the ownership the folder has
 # here, so data/ has to belong to 1000 or SteamCMD cannot write the game files.
-# control/ is the panel's to write, which it does as root; the server container
-# only reads the mode file, as uid 1000, which the permissions above allow.
-if [[ "$(id -u)" != 1000 ]]; then
+# The owner is what matters, not who is running this: an update started by
+# another user has nothing to fix. control/ is the panel's to write, which it
+# does as root; the server container only reads the mode file, as uid 1000.
+if [[ "$(stat -c %u "${DIR}/data" 2>/dev/null || echo unknown)" != 1000 ]]; then
 	say "One thing is left, and it needs root. The server runs as uid 1000, which does"
 	say "not own ${DIR}/data, so it cannot download the game there. Run:"
 	say ""
 	say "  sudo chown -R 1000:1000 ${DIR}/data"
 	say ""
 	say "and then start the server with: cd ${DIR} && docker compose up -d"
-	say "It downloads about 60 GB of game files on the first run."
+	if (( ! updating )); then
+		say "It downloads about 60 GB of game files on the first run."
+	fi
+elif (( updating )); then
+	if confirm "Restart the server to pick the changes up?"; then
+		(cd "$DIR" && docker compose up -d --pull always)
+		say ""
+		say "The server is restarting. pre.sh updates the plugins on the way up."
+	else
+		say ""
+		say "Pick them up later with: cd ${DIR} && docker compose up -d --pull always"
+	fi
 elif confirm "Start the server now?"; then
 	(cd "$DIR" && docker compose up -d)
 	say ""

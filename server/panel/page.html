@@ -1,0 +1,189 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>CS2 server</title>
+<style>
+:root {
+  color-scheme: light dark;
+  --bg: #f2f3f5;
+  --card: #ffffff;
+  --fg: #16181d;
+  --muted: #5c6270;
+  --line: #d9dbe1;
+  --accent: #2f62d8;
+  --accent-fg: #ffffff;
+  --warn: #7a4a00;
+  --warn-bg: #fdf2dc;
+  --bad: #9a2622;
+  --bad-bg: #fdecea;
+  --ok: #1f8a4c;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #101216;
+    --card: #191c22;
+    --fg: #e7e9ee;
+    --muted: #9aa1b0;
+    --line: #2b3039;
+    --accent: #5a86ee;
+    --accent-fg: #0d1015;
+    --warn: #f0c274;
+    --warn-bg: #2c2312;
+    --bad: #f3a7a1;
+    --bad-bg: #2e1817;
+    --ok: #63c98c;
+  }
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  padding: 2rem 1rem 3rem;
+  background: var(--bg);
+  color: var(--fg);
+  font: 16px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+}
+main { max-width: 32rem; margin: 0 auto; }
+h1 { font-size: 1.25rem; margin: 0 0 1rem; }
+.card {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 1.25rem;
+}
+.status {
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+  margin: 0 0 1rem;
+  font-weight: 600;
+}
+.status::before {
+  content: "";
+  width: .6rem;
+  height: .6rem;
+  border-radius: 50%;
+  background: var(--muted);
+  flex: none;
+}
+.status[data-online="true"]::before { background: var(--ok); }
+.alert {
+  margin: 0 0 1rem;
+  padding: .7rem .8rem;
+  border-radius: 8px;
+  background: var(--bad-bg);
+  color: var(--bad);
+  font-size: .9rem;
+}
+fieldset { border: 0; margin: 0; padding: 0; }
+legend { padding: 0; font-weight: 600; margin-bottom: .6rem; }
+.mode {
+  display: flex;
+  gap: .7rem;
+  align-items: flex-start;
+  padding: .8rem;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  margin-bottom: .6rem;
+  cursor: pointer;
+}
+.mode:has(input:checked) { border-color: var(--accent); }
+.mode input { margin: .25rem 0 0; flex: none; accent-color: var(--accent); }
+.mode-name { display: block; font-weight: 600; }
+.mode-desc { display: block; color: var(--muted); font-size: .875rem; }
+.warn {
+  margin: 1rem 0;
+  padding: .7rem .8rem;
+  border-radius: 8px;
+  background: var(--warn-bg);
+  color: var(--warn);
+  font-size: .875rem;
+}
+label.field { display: block; font-weight: 600; margin-bottom: .4rem; }
+input[type=password] {
+  width: 100%;
+  padding: .6rem .7rem;
+  font: inherit;
+  color: var(--fg);
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  margin-bottom: 1rem;
+}
+button {
+  font: inherit;
+  font-weight: 600;
+  padding: .7rem 1rem;
+  width: 100%;
+  border: 0;
+  border-radius: 8px;
+  background: var(--accent);
+  color: var(--accent-fg);
+  cursor: pointer;
+}
+.signout { margin: 1rem 0 0; text-align: center; }
+.signout button {
+  width: auto;
+  background: none;
+  color: var(--muted);
+  font-weight: 400;
+  text-decoration: underline;
+  padding: .4rem;
+}
+</style>
+</head>
+<body>
+<main>
+<h1>CS2 server</h1>
+
+{{if .SignedIn}}
+<div class="card">
+  <p class="status" id="status" data-online="{{if .Online}}true{{else}}false{{end}}" data-restarting="{{if .Restarting}}1{{else}}0{{end}}">{{.Status}}</p>
+  {{with .Error}}<p class="alert">{{.}}</p>{{end}}
+  <form method="post" action="/mode">
+    <input type="hidden" name="csrf" value="{{.CSRF}}">
+    <fieldset>
+      <legend>Mode</legend>
+      {{range .Modes}}
+      <label class="mode">
+        <input type="radio" name="mode" value="{{.Name}}"{{if .Checked}} checked{{end}}>
+        <span>
+          <span class="mode-name">{{.Label}}</span>
+          <span class="mode-desc">{{.Desc}}</span>
+        </span>
+      </label>
+      {{end}}
+    </fieldset>
+    <p class="warn">Switching restarts the server. Everyone playing is disconnected, and it takes about a minute to come back.</p>
+    <button type="submit">Switch and restart</button>
+  </form>
+</div>
+<form method="post" action="/signout" class="signout"><button type="submit">Sign out</button></form>
+<script>
+var line = document.getElementById("status");
+var restarting = line.dataset.restarting === "1";
+setInterval(function () {
+  fetch("/status").then(function (r) {
+    return r.ok ? r.json() : null;
+  }).then(function (s) {
+    if (!s || (restarting && !s.online)) return;
+    restarting = false;
+    line.textContent = s.text;
+    line.dataset.online = s.online;
+  }).catch(function () {});
+}, 4000);
+</script>
+{{else}}
+<div class="card">
+  <form method="post" action="/signin">
+    <label class="field" for="password">Password</label>
+    <input id="password" name="password" type="password" autocomplete="current-password" autofocus required>
+    {{with .Error}}<p class="alert">{{.}}</p>{{end}}
+    <button type="submit">Sign in</button>
+  </form>
+</div>
+{{end}}
+</main>
+</body>
+</html>

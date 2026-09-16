@@ -10,7 +10,7 @@ On a VPS with Docker:
 curl -fsSL https://raw.githubusercontent.com/timche/cs2-server/main/server/install.sh | bash
 ```
 
-It asks for a server name, a server password, an RCON password, a [game server login token](https://steamcommunity.com/dev/managegameservers) (app ID 730), a game port, a player limit, your Steam64 ID, the mode to start in, a panel password, an optional Cloudflare tunnel token and, when you go without one, a panel port, writes `cs2-server/.env` and starts the server. Set `DIR` to install somewhere else.
+It asks for a server name, a server password, an RCON password, a [game server login token](https://steamcommunity.com/dev/managegameservers) (app ID 730), a game port, a player limit, your Steam64 ID, the mode to start in, a panel password, an optional Cloudflare tunnel token, a panel port when you go without one, and whether to restart every morning for updates, writes `cs2-server/.env` and starts the server. Set `DIR` to install somewhere else.
 
 Requirements: 2 CPUs, 2 GiB RAM and 60 GB of free disk. The first start downloads the whole game, which takes a while.
 
@@ -29,6 +29,18 @@ curl -fsSL https://raw.githubusercontent.com/timche/cs2-server/main/server/insta
 Every question the existing `.env` already answers is skipped and that value kept, so an update asks only which folder, fetches the current `docker-compose.yml` and `pre.sh` and offers to restart. Keys you added to `.env` yourself are kept too, at the end of the file. Delete a line from `.env` to be asked that question again.
 
 Restarting is what applies it: `docker compose up -d --pull always` takes a new panel image, and `pre.sh` updates the plugins on the way up. The mode file is never rewritten — the panel owns it, and after a switch it belongs to root.
+
+### The daily restart
+
+A CS2 update only reaches the server when it restarts, and one left running on the old build turns updated players away. Answer yes to the last question and the installer puts a line in your crontab:
+
+```
+0 6 * * * cd /home/you/cs2-server && /usr/bin/docker compose restart cs2 >/dev/null 2>&1 # cs2-server auto-update /home/you/cs2-server
+```
+
+It restarts the game container at 06:00, which is when SteamCMD takes the CS2 update and `pre.sh` takes the plugins'. Anyone playing at that moment is disconnected for about a minute. The panel is left alone: a new panel image needs `docker compose pull`.
+
+`AUTO_UPDATE` in `.env` records the answer and the crontab holds the schedule. Set it to `0` and rerun to take the line out, or edit it yourself with `crontab -e` — the entry is tagged with the folder, so several servers on one machine keep their own and a rerun rewrites only its own line. Machines without `crontab` get the line printed to add wherever their jobs live.
 
 ## Modes
 
@@ -160,6 +172,7 @@ Everything in `.env` is passed to the image; its [README](https://github.com/joe
 | `CS2_LOG` | Server logging, off unless you are chasing a problem. |
 | `PANEL_PORT`, `PANEL_PASSWORD`, `PANEL_SECRET` | The panel's port on `127.0.0.1` when it publishes one at all, its password and its session key. |
 | `COMPOSE_PROFILES`, `TUNNEL_TOKEN` | `tunnel` starts `cloudflared` with the token. |
+| `AUTO_UPDATE` | Whether the installer schedules the 06:00 restart. The schedule itself lives in your crontab. |
 
 The plugins keep their configuration in `data/game/csgo/addons/counterstrikesharp/configs/plugins/`, each file generated on first load. Two exceptions are written by `pre.sh` on every start and will lose hand edits to those keys:
 

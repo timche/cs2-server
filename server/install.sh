@@ -189,6 +189,19 @@ seed_mode() {
 	chmod 644 "$file" 2>/dev/null || true
 }
 
+# Prints 1 or 0, so the answer can live in .env like every other one.
+ask_bool() {
+	local value
+	while true; do
+		value="$(ask "$1" "$2")"
+		case "${value,,}" in
+			y|yes|1) printf '1'; return 0 ;;
+			n|no|0) printf '0'; return 0 ;;
+		esac
+		say "Enter yes or no."
+	done
+}
+
 ask_mode() {
 	local value
 	while true; do
@@ -206,6 +219,40 @@ confirm() {
 	printf '%s [Y/n]: ' "$1" >/dev/tty
 	IFS= read -r answer <&3 || answer=""
 	[[ ! "$answer" =~ ^[Nn] ]]
+}
+
+# The entry belongs to whoever installed here, not to root: docker is already
+# reachable without sudo for them, and a system timer would need a password this
+# script has no business asking for. Tagged with the folder so several servers on
+# one machine keep their own line, and rewritten rather than appended so a rerun
+# leaves exactly one.
+schedule_auto_update() {
+	local dir tag line current
+	dir="$(cd "$DIR" && pwd)"
+	tag="# cs2-server auto-update ${dir}"
+
+	if ! command -v crontab >/dev/null; then
+		if (( autoupdate )); then
+			say ""
+			say "No crontab on this machine, so the daily restart was not scheduled. Add"
+			say "this line to whatever runs your scheduled jobs:"
+			say ""
+			say "  0 6 * * * cd ${dir} && $(command -v docker) compose restart cs2"
+		fi
+		return 0
+	fi
+
+	current="$(crontab -l 2>/dev/null || true)"
+	current="$(printf '%s\n' "$current" | grep -vF "$tag" || true)"
+	if (( autoupdate )); then
+		line="0 6 * * * cd ${dir} && $(command -v docker) compose restart cs2 >/dev/null 2>&1 ${tag}"
+		current="$(printf '%s\n%s' "$current" "$line")"
+	fi
+	printf '%s\n' "$current" | grep -v '^$' | crontab - || {
+		say ""
+		say "Could not write the crontab, so the daily restart is not scheduled."
+		return 0
+	}
 }
 
 command -v docker >/dev/null ||
@@ -295,12 +342,20 @@ else
 	panelport="$(ask_once PANEL_PORT ask_number "Panel port on 127.0.0.1" "$panelport")"
 fi
 
+explain AUTO_UPDATE \
+	"A CS2 update only reaches this server when it restarts, and a server left" \
+	"running on the old build turns updated players away. A restart every morning at" \
+	"06:00 keeps it current, and takes any plugin updates with it. Whoever is playing" \
+	"at that moment is disconnected for about a minute."
+autoupdate="$(ask_once AUTO_UPDATE ask_bool "Restart every morning at 06:00 to take updates" yes)"
+
 mkdir -p "${DIR}/data" "${DIR}/control"
 # Seeding the mode file rather than leaving it to the first switch is what lets
 # the panel report the mode from the first boot: it has no Docker socket and
 # never reads .env, so an absent file leaves it with nothing to show.
 chmod 755 "${DIR}/control" 2>/dev/null || true
 seed_mode
+schedule_auto_update
 curl -fsSL "${BASE_URL}/docker-compose.yml" -o "${DIR}/docker-compose.yml"
 curl -fsSL "${BASE_URL}/pre.sh" -o "${DIR}/pre.sh"
 chmod +x "${DIR}/pre.sh"
@@ -347,6 +402,8 @@ PANEL_SECRET=${panelsecret}
 
 COMPOSE_PROFILES=${profiles}
 TUNNEL_TOKEN=${tunnel}
+
+AUTO_UPDATE=${autoupdate}
 EOF
 carry_over "${DIR}/.env.new"
 mv "${DIR}/.env.new" "${DIR}/.env"
@@ -403,6 +460,12 @@ elif confirm "Start the server now?"; then
 else
 	say ""
 	say "Start it later with: cd ${DIR} && docker compose up -d"
+fi
+
+if (( autoupdate )); then
+	say ""
+	say "It restarts every morning at 06:00 to take CS2 updates. Remove that with"
+	say "crontab -e, or answer no to the question after deleting AUTO_UPDATE from .env."
 fi
 
 say ""

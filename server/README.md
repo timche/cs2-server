@@ -34,7 +34,7 @@ The mode shows in the server name, as `<your server name> | MatchZy`, `| Retakes
 
 The panel writes the mode into `control/mode` and restarts the server, which takes about a minute: every container start runs SteamCMD, and even a no-op update check is not instant. Players are disconnected for that minute, and the plugins of the other modes are only parked, never removed — retakes keeps the spawns you edited in game, MatchZy keeps its configuration.
 
-`CS2_MODE` in `.env` is the mode to come up in before the panel has ever been used. Once `control/mode` exists, that file wins and `CS2_MODE` is ignored.
+The installer writes the mode you picked into `control/mode`, and from there that file is what the panel shows and the server boots from. `CS2_MODE` in `.env` is only the fallback for when the file is missing, which is how a hand-built install comes up. Rerunning the installer offers the mode that is running, not the one in `.env`.
 
 ## The panel
 

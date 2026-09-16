@@ -90,6 +90,20 @@ ask_steam_id() {
 	printf '%s' "$value"
 }
 
+# The mode file is what the panel shows and pre.sh boots from, so a rerun after
+# a switch has to offer that rather than the CS2_MODE in .env, which goes stale
+# the first time the panel writes one.
+saved_mode() {
+	local value=""
+	if [[ -f "${DIR}/control/mode" ]]; then
+		value="$(tr -d '[:space:]' <"${DIR}/control/mode" || true)"
+	fi
+	case "$value" in
+		matchzy|retakes|chatcontrol) printf '%s' "$value" ;;
+		*) saved CS2_MODE chatcontrol ;;
+	esac
+}
+
 ask_mode() {
 	local value
 	while true; do
@@ -156,7 +170,7 @@ say ""
 say "The server runs one of three modes: matchzy for practice and pug matches,"
 say "retakes, or chatcontrol for plain competitive. The panel switches between them"
 say "later, so this is only where it starts."
-mode="$(ask_mode "Mode to start in" "$(saved CS2_MODE chatcontrol)")"
+mode="$(ask_mode "Mode to start in" "$(saved_mode)")"
 
 say ""
 say "The panel switches the mode and restarts the server, so its password is what"
@@ -183,6 +197,13 @@ else
 fi
 
 mkdir -p "${DIR}/data" "${DIR}/control"
+# Seeding the mode file here rather than leaving it to the first switch is what
+# lets the panel report the mode from the first boot: it has no Docker socket and
+# never reads .env, so an absent file leaves it with nothing to show. The server
+# container reads this one as uid 1000, hence the permissions.
+printf '%s\n' "$mode" >"${DIR}/control/mode"
+chmod 755 "${DIR}/control"
+chmod 644 "${DIR}/control/mode"
 curl -fsSL "${BASE_URL}/docker-compose.yml" -o "${DIR}/docker-compose.yml"
 curl -fsSL "${BASE_URL}/pre.sh" -o "${DIR}/pre.sh"
 chmod +x "${DIR}/pre.sh"
@@ -249,7 +270,8 @@ say ""
 
 # The server runs as uid 1000 and a bind mount keeps the ownership the folder has
 # here, so data/ has to belong to 1000 or SteamCMD cannot write the game files.
-# control/ needs nothing: the panel container runs as root.
+# control/ is the panel's to write, which it does as root; the server container
+# only reads the mode file, as uid 1000, which the permissions above allow.
 if [[ "$(id -u)" != 1000 ]]; then
 	say "One thing is left, and it needs root. The server runs as uid 1000, which does"
 	say "not own ${DIR}/data, so it cannot download the game there. Run:"

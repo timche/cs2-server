@@ -29,9 +29,9 @@ services:
       PANEL_SECRET: "${PANEL_SECRET:-}"
       CS2_RCONPW: "${CS2_RCONPW:-}"
       CS2_RCON_ADDR: "cs2:${CS2_PORT:-27015}"
-    # Localhost only: reaching the panel from anywhere else is the tunnel's job.
-    ports:
-      - "127.0.0.1:${PANEL_PORT:-8080}:8080"
+    # No published port: cloudflared reaches the panel at panel:8080 on this
+    # network. Without a tunnel, install.sh writes a docker-compose.override.yml
+    # publishing it on 127.0.0.1 so there is some way in.
     volumes:
       - ./control:/control
 

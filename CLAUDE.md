@@ -53,7 +53,8 @@ Versions are resolved at boot from GitHub `releases/latest` and the AlliedModder
 - **The mode file is the source of truth, `CS2_MODE` only the fallback.** `.env` seeds the mode for the first boot because nothing can write into the folder before `docker compose up`; once the panel has written `control/mode`, that wins and the env value is stale. `pre.sh` treats an unrecognised value as absent and warns.
 - **`control/` is mounted read-only into the game server and read-write into the panel**, at a path inside `data/`'s mount point, so `pre.sh` reads a plain file under `$STEAMAPPDIR` while the panel is confined to that one directory.
 - **The panel's scratch image runs as root** so it can write the mode file whoever owns `control/` on the host, and carries no CA bundle because nothing in it makes an outbound TLS connection.
-- **It trusts `X-Forwarded-Proto` for the `Secure` cookie flag**, which is only safe because it publishes on `127.0.0.1` and is reached through the tunnel. Publishing it on a real interface would make that header attacker-controlled.
+- **The panel publishes no port when a tunnel is configured**, `cloudflared` reaching it at `panel:8080` on the compose network; `install.sh` writes a `docker-compose.override.yml` publishing `127.0.0.1:${PANEL_PORT}` only when there is no tunnel, and removes it when a rerun adds one. Keeping the publish out of `docker-compose.yml` is what stops it colliding with whatever else holds 8080 on the host, and what keeps a hand-edit from being overwritten on the next install.
+- **It trusts `X-Forwarded-Proto` for the `Secure` cookie flag**, which is only safe because it is never published on a real interface — on 127.0.0.1 or not at all. Publishing it outward would make that header attacker-controlled.
 - The session is a signed cookie with no server-side store, keyed by `PANEL_SECRET` — changing that value logs everyone out.
 
 ### Cloudflare tunnel

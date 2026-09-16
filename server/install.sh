@@ -162,7 +162,6 @@ say ""
 say "The panel switches the mode and restarts the server, so its password is what"
 say "keeps that to the people you trust with it."
 panelpw="$(ask "Panel password" "$(saved PANEL_PASSWORD "$(generate_password)")")"
-panelport="$(ask_number "Panel port on 127.0.0.1" "$(saved PANEL_PORT 8080)")"
 panelsecret="$(saved PANEL_SECRET "$(generate_password)")"
 
 say ""
@@ -171,15 +170,35 @@ say "Cloudflare Zero Trust, go to Networks > Tunnels, create a tunnel, route its
 say "public hostname to http://panel:8080 and copy the token it hands you. Leave this"
 say "empty to run without a tunnel."
 tunnel="$(ask "Cloudflare tunnel token" "$(saved TUNNEL_TOKEN "")")"
+
+# A tunnel reaches the panel over the compose network, so publishing a port as
+# well would only be one more thing to collide with something already on 8080.
 profiles=""
+panelport="$(saved PANEL_PORT 8080)"
 if [[ -n "$tunnel" ]]; then
 	profiles="tunnel"
+else
+	say ""
+	panelport="$(ask_number "Panel port on 127.0.0.1" "$panelport")"
 fi
 
 mkdir -p "${DIR}/data" "${DIR}/control"
 curl -fsSL "${BASE_URL}/docker-compose.yml" -o "${DIR}/docker-compose.yml"
 curl -fsSL "${BASE_URL}/pre.sh" -o "${DIR}/pre.sh"
 chmod +x "${DIR}/pre.sh"
+
+# Compose picks this up on its own. Removed rather than left behind when a
+# tunnel is configured, so a rerun that adds one takes the port away again.
+if [[ -n "$tunnel" ]]; then
+	rm -f "${DIR}/docker-compose.override.yml"
+else
+	cat >"${DIR}/docker-compose.override.yml" <<EOF
+services:
+  panel:
+    ports:
+      - "127.0.0.1:\${PANEL_PORT:-8080}:8080"
+EOF
+fi
 
 umask 077
 cat >"${DIR}/.env" <<EOF
@@ -252,9 +271,10 @@ fi
 say ""
 say "  Connect        connect <server-ip>:${port}${password:+; password ${password}}"
 say "  RCON password  ${rconpw}"
-say "  Panel          http://127.0.0.1:${panelport}"
 if [[ -n "$tunnel" ]]; then
-	say "                 and the hostname you routed to http://panel:8080 in Cloudflare"
+	say "  Panel          the hostname you routed to http://panel:8080 in Cloudflare"
+else
+	say "  Panel          http://127.0.0.1:${panelport}"
 fi
 say "  Panel password ${panelpw}"
 say "  Follow along   cd ${DIR} && docker compose logs -f"

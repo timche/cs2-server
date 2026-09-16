@@ -10,13 +10,13 @@ On a VPS with Docker:
 curl -fsSL https://raw.githubusercontent.com/timche/cs2-server/main/server/install.sh | bash
 ```
 
-It asks for a server name, a server password, an RCON password, a [game server login token](https://steamcommunity.com/dev/managegameservers) (app ID 730), a game port, a player limit, your Steam64 ID, the mode to start in, a panel password and port and an optional Cloudflare tunnel token, writes `cs2-server/.env` and starts the server. Set `DIR` to install somewhere else.
+It asks for a server name, a server password, an RCON password, a [game server login token](https://steamcommunity.com/dev/managegameservers) (app ID 730), a game port, a player limit, your Steam64 ID, the mode to start in, a panel password, an optional Cloudflare tunnel token and, when you go without one, a panel port, writes `cs2-server/.env` and starts the server. Set `DIR` to install somewhere else.
 
 Requirements: 2 CPUs, 2 GiB RAM and 60 GB of free disk. The first start downloads the whole game, which takes a while.
 
 The server's files live next to `docker-compose.yml`: the game and the plugins in `data/`, the mode file the panel writes in `control/`. The server runs as uid 1000 inside the container and a bind-mounted folder keeps the ownership it has on the host, so `data/` must belong to uid 1000 or SteamCMD cannot write to it. The installer says so and prints the `chown` when you are not uid 1000 yourself. Removing a server is deleting its folder.
 
-To do it by hand instead, copy `docker-compose.yml`, `pre.sh` and `.env.example` into a directory, fill in `.env`, create `data/` and `control/` and run `docker compose up -d`.
+To do it by hand instead, copy `docker-compose.yml`, `pre.sh` and `.env.example` into a directory, fill in `.env`, create `data/` and `control/` and run `docker compose up -d`. Without a Cloudflare tunnel you also want a `docker-compose.override.yml` to reach the panel; see below.
 
 ## Modes
 
@@ -38,13 +38,17 @@ The panel writes the mode into `control/mode` and restarts the server, which tak
 
 ## The panel
 
-The panel is published on `127.0.0.1:8080` and nowhere else, and asks for `PANEL_PASSWORD` before it does anything. That password is what stands between whoever reaches it and the mode switch, so treat it as you would the RCON password. `PANEL_SECRET` signs the login sessions: change it and everyone is logged out.
+The panel asks for `PANEL_PASSWORD` before it does anything. That password is what stands between whoever reaches it and the mode switch, so treat it as you would the RCON password. `PANEL_SECRET` signs the login sessions: change it and everyone is logged out.
 
-To reach it from the machine you are sitting at, tunnel SSH to it:
+How you reach it depends on whether you set up a tunnel. With one, the panel publishes no port at all — `cloudflared` reaches it at `panel:8080` inside the compose network — so nothing of it is on the host and nothing can collide with whatever else you run there.
+
+Without a tunnel, the installer writes a `docker-compose.override.yml` that publishes it on `127.0.0.1:${PANEL_PORT}`, reachable over SSH from the machine you are sitting at:
 
 ```sh
 ssh -N -L 8080:127.0.0.1:8080 <server-ip>
 ```
+
+That override file is the switch: delete it to take the port away, or write it yourself to get one back alongside a tunnel. Change `PANEL_PORT` in `.env` if 8080 is taken.
 
 ### Over a Cloudflare tunnel
 
@@ -138,7 +142,7 @@ Everything in `.env` is passed to the image; its [README](https://github.com/joe
 | `CS2_PORT`, `CS2_MAXPLAYERS` | Game port, and server slots. How many of the slots play in retakes mode is cs2-retakes' own `MaxPlayers` (9 by default, 10 at most), with the rest waiting in the queue. |
 | `TV_ENABLE`, `TV_PORT` | GOTV, which is how MatchZy records demos. |
 | `CS2_LOG` | Server logging, off unless you are chasing a problem. |
-| `PANEL_PORT`, `PANEL_PASSWORD`, `PANEL_SECRET` | The panel's port on `127.0.0.1`, its password and its session key. |
+| `PANEL_PORT`, `PANEL_PASSWORD`, `PANEL_SECRET` | The panel's port on `127.0.0.1` when it publishes one at all, its password and its session key. |
 | `COMPOSE_PROFILES`, `TUNNEL_TOKEN` | `tunnel` starts `cloudflared` with the token. |
 
 The plugins keep their configuration in `data/game/csgo/addons/counterstrikesharp/configs/plugins/`, each file generated on first load. Two exceptions are written by `pre.sh` on every start and will lose hand edits to those keys:

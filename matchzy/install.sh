@@ -69,7 +69,7 @@ ask_number() {
 ask_required() {
 	local value
 	while true; do
-		value="$(ask "$1")"
+		value="$(ask "$1" "${2:-}")"
 		if [[ -n "$value" ]]; then
 			break
 		fi
@@ -92,14 +92,15 @@ docker compose version >/dev/null 2>&1 ||
 	fail "The Docker Compose plugin is missing. Install it with:
   curl -fsSL https://get.docker.com | sh"
 
-say "Setting up a MatchZy CS2 server in ${DIR}"
-if [[ -f "${DIR}/.env" ]]; then
-	say "Answers from the last run are offered as defaults."
-fi
+say "Setting up a MatchZy CS2 server"
 say ""
 
-servername="$(ask_without_slash "Server name" "$(saved CS2_SERVERNAME MatchZy)")"
+DIR="$(ask "Folder to create" "$DIR")"
+if [[ -f "${DIR}/.env" ]]; then
+	say "${DIR} already holds a server. Answers from the last run are offered as defaults."
+fi
 
+servername="$(ask_without_slash "Server name" "$(saved CS2_SERVERNAME MatchZy)")"
 say ""
 say "Every player on this server gets admin, which includes a chat command that runs"
 say "arbitrary server commands. A password keeps that to the people you invite."
@@ -113,7 +114,7 @@ rconpw="$(ask_without_slash "RCON password" "$(saved CS2_RCONPW "$(generate_pass
 say ""
 say "A game server login token lists the server publicly. Create one for app ID 730 at"
 say "https://steamcommunity.com/dev/managegameservers"
-token="$(ask_required "Game server login token")"
+token="$(ask_required "Game server login token" "$(saved SRCDS_TOKEN "")")"
 
 say ""
 port="$(ask_number "Game port" "$(saved CS2_PORT 27015)")"

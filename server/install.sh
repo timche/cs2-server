@@ -29,6 +29,64 @@ saved() {
 	printf '%s' "${value:-$2}"
 }
 
+# A question .env already answers is not asked again and its value is kept, so a
+# rerun updates the server instead of repeating the interview. Presence of the
+# key decides, not its value: an empty CS2_PW or TUNNEL_TOKEN is an answer.
+# Delete the line to be asked once more.
+keep() {
+	[[ -f "${DIR}/.env" ]] && grep -q "^${1}=" "${DIR}/.env"
+}
+
+# explain <key> [line]... -- the words before a question, and the blank line
+# above them, printed only when the question is going to be asked.
+explain() {
+	local key="$1" line
+	shift
+	if keep "$key"; then
+		return 0
+	fi
+	say ""
+	for line in "$@"; do
+		say "$line"
+	done
+}
+
+# ask_once <key> <asker> <question> <default>
+ask_once() {
+	local key="$1" asker="$2"
+	shift 2
+	if keep "$key"; then
+		saved "$key" ""
+		return 0
+	fi
+	"$asker" "$@"
+}
+
+# .env is rewritten from the answers, so a key this script never asks about --
+# one of the image's own variables, say -- would be dropped without this. Only
+# real KEY=VALUE lines carry over, which leaves comments behind but keeps the
+# file from growing a copy of itself on every rerun.
+carry_over() {
+	local new="$1" old="${DIR}/.env" line key announced=0
+
+	[[ -f "$old" ]] || return 0
+	while IFS= read -r line; do
+		key="${line%%=*}"
+		if [[ "$line" != *=* || -z "$key" || "$key" == *[!A-Za-z0-9_]* ]]; then
+			continue
+		fi
+		if grep -q "^${key}=" "$new"; then
+			continue
+		fi
+		if (( ! announced )); then
+			printf '\n# Kept from the previous .env\n' >>"$new"
+			say "Kept the values in ${DIR}/.env this installer does not ask about."
+			announced=1
+		fi
+		printf '%s\n' "$line" >>"$new"
+	done <"$old"
+}
+
 ask() {
 	local question="$1" default="${2:-}" answer
 	if [[ -n "$default" ]]; then
@@ -135,55 +193,63 @@ say ""
 
 DIR="$(ask "Folder to create" "$DIR")"
 if [[ -f "${DIR}/.env" ]]; then
-	say "${DIR} already holds a server. Answers from the last run are offered as defaults."
+	say "${DIR} already holds a server, so every question its .env answers is skipped"
+	say "and that value kept. Delete a line from the file to be asked again."
 fi
 
-servername="$(ask_without_slash "Server name" "$(saved CS2_SERVERNAME CS2)")"
-say ""
-say "Every player on this server gets a chat command that runs arbitrary server"
-say "commands, and in matchzy mode the run of MatchZy as well. A password keeps that"
-say "to the people you invite."
-password="$(ask_without_slash "Server password, or none to run without one" "$(saved CS2_PW "$(generate_password)")")"
+servername="$(ask_once CS2_SERVERNAME ask_without_slash "Server name" CS2)"
+
+explain CS2_PW \
+	"Every player on this server gets a chat command that runs arbitrary server" \
+	"commands, and in matchzy mode the run of MatchZy as well. A password keeps that" \
+	"to the people you invite."
+password="$(ask_once CS2_PW ask_without_slash "Server password, or none to run without one" "$(generate_password)")"
 if [[ "$password" == "none" ]]; then
 	password=""
 fi
 
-rconpw="$(ask_without_slash "RCON password" "$(saved CS2_RCONPW "$(generate_password)")")"
+rconpw="$(ask_once CS2_RCONPW ask_without_slash "RCON password" "$(generate_password)")"
 
-say ""
-say "A game server login token lists the server publicly. Create one for app ID 730 at"
-say "https://steamcommunity.com/dev/managegameservers"
-token="$(ask_required "Game server login token" "$(saved SRCDS_TOKEN "")")"
+explain SRCDS_TOKEN \
+	"A game server login token lists the server publicly. Create one for app ID 730 at" \
+	"https://steamcommunity.com/dev/managegameservers"
+token="$(ask_once SRCDS_TOKEN ask_required "Game server login token" "")"
 
-say ""
-port="$(ask_number "Game port" "$(saved CS2_PORT 27015)")"
-maxplayers="$(ask_number "Maximum players" "$(saved CS2_MAXPLAYERS 12)")"
+explain CS2_PORT
+port="$(ask_once CS2_PORT ask_number "Game port" 27015)"
+maxplayers="$(ask_once CS2_MAXPLAYERS ask_number "Maximum players" 12)"
 
-say ""
-say "In retakes mode, your Steam64 ID makes you an admin of the retakes plugins: the"
-say "spawn editor, !forcebombsite, !scramble and !setnextround. They ask"
-say "CounterStrikeSharp who is an admin, which the everyone-gets-admin setting above"
-say "does not answer. Find your ID at https://steamid.io, or leave it empty."
-adminid="$(ask_steam_id "Steam64 ID" "$(saved RETAKES_ADMIN_STEAM_IDS "")")"
+explain RETAKES_ADMIN_STEAM_IDS \
+	"In retakes mode, your Steam64 ID makes you an admin of the retakes plugins: the" \
+	"spawn editor, !forcebombsite, !scramble and !setnextround. They ask" \
+	"CounterStrikeSharp who is an admin, which the everyone-gets-admin setting above" \
+	"does not answer. Find your ID at https://steamid.io, or leave it empty."
+adminid="$(ask_once RETAKES_ADMIN_STEAM_IDS ask_steam_id "Steam64 ID" "")"
 
-say ""
-say "The server runs one of three modes: matchzy for practice and pug matches,"
-say "retakes, or chatcontrol for plain competitive. The panel switches between them"
-say "later, so this is only where it starts."
-mode="$(ask_mode "Mode to start in" "$(saved_mode)")"
+# Not ask_once: the mode file, not .env, is what the server is running, so a
+# rerun after a switch has to carry that value forward rather than CS2_MODE.
+if keep CS2_MODE; then
+	mode="$(saved_mode)"
+else
+	say ""
+	say "The server runs one of three modes: matchzy for practice and pug matches,"
+	say "retakes, or chatcontrol for plain competitive. The panel switches between them"
+	say "later, so this is only where it starts."
+	mode="$(ask_mode "Mode to start in" chatcontrol)"
+fi
 
-say ""
-say "The panel switches the mode and restarts the server, so its password is what"
-say "keeps that to the people you trust with it."
-panelpw="$(ask "Panel password" "$(saved PANEL_PASSWORD "$(generate_password)")")"
+explain PANEL_PASSWORD \
+	"The panel switches the mode and restarts the server, so its password is what" \
+	"keeps that to the people you trust with it."
+panelpw="$(ask_once PANEL_PASSWORD ask "Panel password" "$(generate_password)")"
 panelsecret="$(saved PANEL_SECRET "$(generate_password)")"
 
-say ""
-say "A Cloudflare tunnel reaches the panel from anywhere without opening a port. In"
-say "Cloudflare Zero Trust, go to Networks > Tunnels, create a tunnel, route its"
-say "public hostname to http://panel:8080 and copy the token it hands you. Leave this"
-say "empty to run without a tunnel."
-tunnel="$(ask "Cloudflare tunnel token" "$(saved TUNNEL_TOKEN "")")"
+explain TUNNEL_TOKEN \
+	"A Cloudflare tunnel reaches the panel from anywhere without opening a port. In" \
+	"Cloudflare Zero Trust, go to Networks > Tunnels, create a tunnel, route its" \
+	"public hostname to http://panel:8080 and copy the token it hands you. Leave this" \
+	"empty to run without a tunnel."
+tunnel="$(ask_once TUNNEL_TOKEN ask "Cloudflare tunnel token" "")"
 
 # A tunnel reaches the panel over the compose network, so publishing a port as
 # well would only be one more thing to collide with something already on 8080.
@@ -192,8 +258,8 @@ panelport="$(saved PANEL_PORT 8080)"
 if [[ -n "$tunnel" ]]; then
 	profiles="tunnel"
 else
-	say ""
-	panelport="$(ask_number "Panel port on 127.0.0.1" "$panelport")"
+	explain PANEL_PORT
+	panelport="$(ask_once PANEL_PORT ask_number "Panel port on 127.0.0.1" "$panelport")"
 fi
 
 mkdir -p "${DIR}/data" "${DIR}/control"
@@ -222,7 +288,7 @@ EOF
 fi
 
 umask 077
-cat >"${DIR}/.env" <<EOF
+cat >"${DIR}/.env.new" <<EOF
 SRCDS_TOKEN=${token}
 
 CS2_SERVERNAME=${servername}
@@ -251,6 +317,8 @@ PANEL_SECRET=${panelsecret}
 COMPOSE_PROFILES=${profiles}
 TUNNEL_TOKEN=${tunnel}
 EOF
+carry_over "${DIR}/.env.new"
+mv "${DIR}/.env.new" "${DIR}/.env"
 
 say ""
 say "Wrote ${DIR}/.env, ${DIR}/docker-compose.yml and ${DIR}/pre.sh. The game files go"

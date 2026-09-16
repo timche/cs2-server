@@ -12,6 +12,8 @@ curl -fsSL https://raw.githubusercontent.com/timche/cs2-server/main/server/insta
 
 It asks for a server name, a server password, an RCON password, a [game server login token](https://steamcommunity.com/dev/managegameservers) (app ID 730), a game port, a player limit, your Steam64 ID, the mode to start in, a panel password, an optional Cloudflare tunnel token and, when you go without one, a panel port, writes `cs2-server/.env` and starts the server. Set `DIR` to install somewhere else.
 
+Run it again on the same folder to update one. Every question the existing `.env` already answers is skipped and that value kept, so a rerun asks nothing, refreshes `docker-compose.yml` and `pre.sh` from the repo and leaves the server as it was. Keys you added to `.env` yourself are kept too, at the end of the file. Delete a line from `.env` to be asked that question again.
+
 Requirements: 2 CPUs, 2 GiB RAM and 60 GB of free disk. The first start downloads the whole game, which takes a while.
 
 The server's files live next to `docker-compose.yml`: the game and the plugins in `data/`, the mode file the panel writes in `control/`. The server runs as uid 1000 inside the container and a bind-mounted folder keeps the ownership it has on the host, so `data/` must belong to uid 1000 or SteamCMD cannot write to it. The installer says so and prints the `chown` when you are not uid 1000 yourself. Removing a server is deleting its folder.
@@ -34,7 +36,7 @@ The mode shows in the server name, as `<your server name> | MatchZy`, `| Retakes
 
 The panel writes the mode into `control/mode` and restarts the server, which takes about a minute: every container start runs SteamCMD, and even a no-op update check is not instant. Players are disconnected for that minute, and the plugins of the other modes are only parked, never removed — retakes keeps the spawns you edited in game, MatchZy keeps its configuration.
 
-The installer writes the mode you picked into `control/mode`, and from there that file is what the panel shows and the server boots from. `CS2_MODE` in `.env` is only the fallback for when the file is missing, which is how a hand-built install comes up. Rerunning the installer offers the mode that is running, not the one in `.env`.
+The installer writes the mode you picked into `control/mode`, and from there that file is what the panel shows and the server boots from. `CS2_MODE` in `.env` is only the fallback for when the file is missing, which is how a hand-built install comes up. Rerunning the installer carries the running mode forward rather than the one in `.env`, which goes stale the first time you switch.
 
 ## The panel
 

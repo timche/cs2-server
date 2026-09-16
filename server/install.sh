@@ -5,6 +5,7 @@ set -euo pipefail
 
 REPO="${REPO:-timche/cs2-server}"
 REF="${REF:-main}"
+DIR_FROM_ENV="${DIR:+1}"
 DIR="${DIR:-cs2-server}"
 BASE_URL="${BASE_URL:-https://raw.githubusercontent.com/${REPO}/${REF}/server}"
 
@@ -262,9 +263,21 @@ docker compose version >/dev/null 2>&1 ||
 	fail "The Docker Compose plugin is missing. Install it with:
   curl -fsSL https://get.docker.com | sh"
 
+# Updating from inside the server folder is the obvious thing to do, so take that
+# as the default rather than offering to nest a second server inside the first.
+# The compose file names the image, which no folder that merely happens to hold
+# one will.
+is_server_dir() {
+	[[ -f "${1}/pre.sh" && -f "${1}/docker-compose.yml" ]] &&
+		grep -q 'joedwards32/cs2' "${1}/docker-compose.yml"
+}
+
 say "Installing or updating a CS2 server"
 say ""
 
+if [[ -z "$DIR_FROM_ENV" ]] && is_server_dir .; then
+	DIR="$PWD"
+fi
 DIR="$(ask "Server folder" "$DIR")"
 # An existing .env is what makes this an update rather than an install: the
 # questions it answers are skipped, so a rerun is how you take a new version of

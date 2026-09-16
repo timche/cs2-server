@@ -20,7 +20,7 @@ To do it by hand instead, copy `docker-compose.yml`, `pre.sh` and `.env.example`
 
 ## Updating
 
-The same command, pointed at a folder that already holds a server, is the update:
+The same command is the update, and run from inside a server folder it offers that folder, so there is nothing to type:
 
 ```sh
 curl -fsSL https://raw.githubusercontent.com/timche/cs2-server/main/server/install.sh | bash

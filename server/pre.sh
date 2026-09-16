@@ -195,7 +195,10 @@ register_metamod() {
 		return 0
 	fi
 
-	sed -i -E 's|^([[:space:]]*)Game([[:space:]]+)csgo$|\1Game\2csgo/addons/metamod\n\1Game\2csgo|' "$gameinfo"
+	# Valve ships gameinfo.gi with CRLF endings, so the carriage return is part of
+	# the line and has to be matched and carried onto both output lines -- anchoring
+	# on csgo$ alone silently matches nothing.
+	sed -i -E 's|^([[:space:]]*)Game([[:space:]]+)csgo([[:space:]]*)$|\1Game\2csgo/addons/metamod\3\n\1Game\2csgo\3|' "$gameinfo"
 	if ! grep -q 'csgo/addons/metamod' "$gameinfo"; then
 		log "ERROR: could not add Metamod to the search paths in gameinfo.gi"
 		return 1

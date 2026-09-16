@@ -34,7 +34,7 @@ A full run resolves seven releases through the unauthenticated GitHub API, which
 The base image re-runs SteamCMD on every container start and its `entry.sh` `source`s `pre.sh` from the server folder afterwards, just before launching the server. That single hook is why everything works the way it does:
 
 - **`pre.sh` must never call `exit` at the top level.** Being sourced, an exit takes the server process with it. The whole body is a subshell whose failure is only logged.
-- **The `gameinfo.gi` Metamod search path is re-applied on every boot**, because CS2 updates replace that file. Nothing that runs before SteamCMD — a derived image, an init container — can do this.
+- **The `gameinfo.gi` Metamod search path is re-applied on every boot**, because CS2 updates replace that file. Valve ships it with CRLF endings, so the `sed` has to match and carry the carriage return: anchoring on `csgo$` matches nothing, and the only symptom is that no plugin loads at all. Nothing that runs before SteamCMD — a derived image, an init container — can do this.
 - **Plugin convars cannot live in `cfg/server.cfg`**, which the image overwrites each start. They go in a generated `cfg/cs2-server.cfg`, exec'd from `cfg/gamemode_competitive_server.cfg` (every map load) and from `cfg/MatchZy/config.cfg` (MatchZy load time), because CounterStrikeSharp gives no plugin load-order guarantee.
 - The image ships `curl`, `wget`, `unzip` and `jq` and runs as uid 1000, so the hook can do the installs itself.
 

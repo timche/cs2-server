@@ -77,7 +77,7 @@ The GHCR package followed this repository and came out public, so an unauthentic
 
 ## Conventions
 
-**`install.sh` asks nothing it has already been told.** A key present in `.env` — present, not non-empty, so a cleared `CS2_PW` and an empty `TUNNEL_TOKEN` both count as answers — keeps its value and its question is skipped, which makes a rerun an update rather than an interview; deleting the line is how you are asked again. `.env` is rewritten from the answers, so `carry_over` appends the keys the script does not ask about, and only real `KEY=VALUE` lines, or the file would grow a copy of its own comments on every run.
+**`install.sh` asks nothing it has already been told.** A key present in `.env` — present, not non-empty, so a cleared `CS2_PW` and an empty `TUNNEL_TOKEN` both count as answers — keeps its value and its question is skipped, which makes a rerun an update rather than an interview; deleting the line is how you are asked again. `control/mode` is seeded but never rewritten: the panel writes it as root, so on a rerun it is not the installer's to touch, and it is the source of truth for the mode anyway. `.env` is rewritten from the answers, so `carry_over` appends the keys the script does not ask about, and only real `KEY=VALUE` lines, or the file would grow a copy of its own comments on every run.
 
 Values in `.env` must not contain a slash: the image templates them into its configs with `sed`. `install.sh` re-prompts when one appears. `TUNNEL_TOKEN` is exempt, as above.
 

@@ -12,7 +12,7 @@ curl -fsSL https://raw.githubusercontent.com/timche/cs2-server/main/server/insta
 
 It asks for a server name, a server password, an RCON password, a [game server login token](https://steamcommunity.com/dev/managegameservers) (app ID 730), a game port, a player limit, your Steam64 ID, the mode to start in, a panel password, an optional Cloudflare tunnel token and, when you go without one, a panel port, writes `cs2-server/.env` and starts the server. Set `DIR` to install somewhere else.
 
-Run it again on the same folder to update one. Every question the existing `.env` already answers is skipped and that value kept, so a rerun asks nothing, refreshes `docker-compose.yml` and `pre.sh` from the repo and leaves the server as it was. Keys you added to `.env` yourself are kept too, at the end of the file. Delete a line from `.env` to be asked that question again.
+Run it again on the same folder to update one. Every question the existing `.env` already answers is skipped and that value kept, so a rerun asks nothing, refreshes `docker-compose.yml` and `pre.sh` from the repo and leaves the server as it was. Keys you added to `.env` yourself are kept too, at the end of the file. Delete a line from `.env` to be asked that question again. The mode file is never rewritten — the panel owns it, and after a switch it belongs to root.
 
 Requirements: 2 CPUs, 2 GiB RAM and 60 GB of free disk. The first start downloads the whole game, which takes a while.
 

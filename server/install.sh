@@ -151,15 +151,42 @@ ask_steam_id() {
 # The mode file is what the panel shows and pre.sh boots from, so a rerun after
 # a switch has to offer that rather than the CS2_MODE in .env, which goes stale
 # the first time the panel writes one.
-saved_mode() {
+# The mode control/mode holds, or nothing when it is absent, unreadable or says
+# something this version does not know.
+mode_file() {
 	local value=""
-	if [[ -f "${DIR}/control/mode" ]]; then
-		value="$(tr -d '[:space:]' <"${DIR}/control/mode" || true)"
+	if [[ -r "${DIR}/control/mode" ]]; then
+		value="$(tr -d '[:space:]' <"${DIR}/control/mode" 2>/dev/null || true)"
 	fi
 	case "$value" in
 		matchzy|retakes|chatcontrol) printf '%s' "$value" ;;
-		*) saved CS2_MODE chatcontrol ;;
 	esac
+}
+
+saved_mode() {
+	local value
+	value="$(mode_file)"
+	printf '%s' "${value:-$(saved CS2_MODE chatcontrol)}"
+}
+
+# Only ever seeded, never rewritten: once the panel has switched a mode the file
+# belongs to root, because that is what the panel container runs as, and this
+# script does not. It is also the source of truth for the mode, so a rerun has
+# nothing to say about it -- the value it carries forward came from here.
+seed_mode() {
+	local file="${DIR}/control/mode"
+
+	if [[ "$(mode_file)" == "$mode" ]]; then
+		return 0
+	fi
+	if ! printf '%s\n' "$mode" >"$file" 2>/dev/null; then
+		say ""
+		say "Could not write ${file}, which belongs to the panel. The server keeps the"
+		say "mode it is on; switch it in the panel rather than here."
+		return 0
+	fi
+	# The game server container reads this file as uid 1000.
+	chmod 644 "$file" 2>/dev/null || true
 }
 
 ask_mode() {
@@ -263,13 +290,11 @@ else
 fi
 
 mkdir -p "${DIR}/data" "${DIR}/control"
-# Seeding the mode file here rather than leaving it to the first switch is what
-# lets the panel report the mode from the first boot: it has no Docker socket and
-# never reads .env, so an absent file leaves it with nothing to show. The server
-# container reads this one as uid 1000, hence the permissions.
-printf '%s\n' "$mode" >"${DIR}/control/mode"
-chmod 755 "${DIR}/control"
-chmod 644 "${DIR}/control/mode"
+# Seeding the mode file rather than leaving it to the first switch is what lets
+# the panel report the mode from the first boot: it has no Docker socket and
+# never reads .env, so an absent file leaves it with nothing to show.
+chmod 755 "${DIR}/control" 2>/dev/null || true
+seed_mode
 curl -fsSL "${BASE_URL}/docker-compose.yml" -o "${DIR}/docker-compose.yml"
 curl -fsSL "${BASE_URL}/pre.sh" -o "${DIR}/pre.sh"
 chmod +x "${DIR}/pre.sh"
